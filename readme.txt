@@ -32,8 +32,9 @@ set -x
 
 cd ..
 python ./setup.py install
+python ./setup.py install    # there's some weird install bug
 cd ..
-#rm -rf pynacl
+rm -rf pynacl
 
 pip install -r deps.txt
 
