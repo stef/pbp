@@ -13,11 +13,14 @@
 # TODO implement --outfile
 
 set -x
-wget http://hyperelliptic.org/nacl/nacl-20110221.tar.bz2 || exit 1
-bunzip2 < nacl-20110221.tar.bz2 | tar -xf -
-cd nacl-20110221
-export NACL_DIR="$PWD"
-sed -i "s/$/ -fPIC/" okcompilers/c*
+git clone https://github.com/stef/pbp.git
+cd pbp
+
+virtualenv env
+source env/bin/activate
+
+git clone git://github.com/seanlynch/pynacl.git
+cd pynacl/nacl-20110221
 set +x
 echo "the following compilation can take 30m on 3-4 year old hw"
 echo "please be patient"
@@ -25,10 +28,9 @@ set -x
 ./do
 
 cd ..
-git clone https://github.com/stef/pbp.git
-cd pbp
+python ./setup.py install
+cd ..
 
-virtualenv env
 pip install -r deps.txt
 
 # check out test.sh for examples how to use pbp.py
