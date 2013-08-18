@@ -30,6 +30,7 @@ set -x
 cd ..
 python ./setup.py install
 cd ..
+rm -rf pynacl
 
 pip install -r deps.txt
 
