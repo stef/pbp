@@ -5,7 +5,6 @@ from utils import split_by_n, b85encode
 
 # TODO make processing buffered!
 # TODO add output armoring
-# TODO implement --outfile param
 
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
@@ -227,6 +226,7 @@ def verify(msg, basedir=defaultbase, master=False):
 def encrypt_handler(opts):
     with open(opts.infile,'r') as fd:
         msg=fd.read()
+    output_filename = opts.outfile if opts.outfile else opts.infile + '.pbp'
     if opts.recipient:
         # let's do public key encryption
         if not opts.self:
@@ -240,7 +240,7 @@ def encrypt_handler(opts):
         if type!='a':
             print >>sys.stderr, "Error: wrong encryption type"
             sys.exit(1)
-        with open(opts.infile+'.pbp','w') as fd:
+        with open(output_filename, 'w') as fd:
             fd.write(struct.pack("B",5))
             fd.write(nonce)
             fd.write(struct.pack("L",len(r)))
@@ -254,13 +254,13 @@ def encrypt_handler(opts):
         type, nonce, cipher = encrypt(msg)
         # until we pass a param to encrypt above, it will always be block cipher
         if type=='c':
-            with open(opts.infile+'.pbp','w') as fd:
+            with open(output_filename, 'w') as fd:
                 fd.write(struct.pack("B",23))
                 fd.write(nonce)
                 fd.write(cipher)
         elif type=='s':
             # use the stream cipher
-            with open(opts.infile+'.pbp','w') as fd:
+            with open(output_filename ,'w') as fd:
                 fd.write(struct.pack("B",42))
                 fd.write(nonce)
                 fd.write(cipher)
@@ -374,7 +374,7 @@ def main():
     parser.add_argument('--self',       '-S', help="sets your own key")
     parser.add_argument('--infile',     '-i', help="file to operate on")
     parser.add_argument('--armor',      '-a', action='store_true', help="ascii armors the output [TODO]")
-    parser.add_argument('--outfile',    '-o', help="file to operate on [TODO]")
+    parser.add_argument('--outfile',    '-o', help="file to operate on")
     opts=parser.parse_args()
 
     opts.basedir=os.path.expandvars( os.path.expanduser(opts.basedir))
