@@ -213,15 +213,16 @@ def sign(msg, self, master=False):
         return nacl.crypto_sign(msg, self.ms)
     return nacl.crypto_sign(msg, self.ss)
 
-def verify(msg, basedir=defaultbase):
+def verify(msg, basedir=defaultbase, master=False):
     for keys in Identity.getpkeys(basedir=basedir):
-        try:
-            return keys.name, nacl.crypto_sign_open(msg, keys.sp)
-        except ValueError:
+        if not master:
+            try:
+                return keys.name, nacl.crypto_sign_open(msg, keys.sp)
+            except ValueError: pass
+        else:
             try:
                 return keys.name, nacl.crypto_sign_open(msg, keys.mp)
-            except:
-                pass
+            except ValueError: pass
 
 def encrypt_handler(opts):
     with open(opts.infile,'r') as fd:
@@ -322,7 +323,9 @@ def keysignhandler(opts):
     with open(fname,'r') as fd:
         data = fd.read()
     with open(fname+'.sig','a') as fd:
-        sig = sign(data, self=Identity(opts.self, basedir=opts.basedir))
+        sig = sign(data,
+                   self=Identity(opts.self, basedir=opts.basedir),
+                   master=True)
         fd.write(sig[:32]+sig[-32:])
 
 def keycheckhandler(opts):
@@ -334,7 +337,9 @@ def keycheckhandler(opts):
         sigdat=fd.read()
     i=0
     while i<len(sigdat)/64:
-        res = verify(sigdat[i*64:i*64+32]+pk+sigdat[i*64+32:i*64+64], basedir=opts.basedir)
+        res = verify(sigdat[i*64:i*64+32]+pk+sigdat[i*64+32:i*64+64],
+                     basedir=opts.basedir,
+                     master=True)
         if res:
             sigs.append(res[0])
         i+=1
