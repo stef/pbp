@@ -33,7 +33,7 @@ set -x
 cd ..
 python ./setup.py install
 cd ..
-rm -rf pynacl
+#rm -rf pynacl
 
 pip install -r deps.txt
 
