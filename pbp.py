@@ -53,10 +53,14 @@ class Identity(object):
         self.save()
 
     def save(self):
-        # save sectret master key
-        if self.ms: self.savesecretekey("mk", self.ms)
+        # save secret master key
+        if self.ms:
+            print >>sys.stderr, "Master ",
+            self.savesecretekey("mk", self.ms)
         # save secret sub-keys
-        if self.cs or self.ss: self.savesecretekey("sk", self.ss+self.cs)
+        if self.cs or self.ss:
+            print >>sys.stderr, "Subkey ",
+            self.savesecretekey("sk", self.ss+self.cs)
         # save public keys
         self.savepublickeys()
 
