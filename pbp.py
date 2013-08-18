@@ -55,10 +55,8 @@ class Identity(object):
 
     def save(self):
         # save sectret master key
-        print >>sys.stderr, 'Master key'
         if self.ms: self.savesecretekey("mk", self.ms)
         # save secret sub-keys
-        print >>sys.stderr, 'Sub-keys'
         if self.cs or self.ss: self.savesecretekey("sk", self.ss+self.cs)
         # save public keys
         self.savepublickeys()
@@ -313,6 +311,45 @@ def decrypt_handler(opts):
         else:
             print >>sys.stderr,  'decryption failed'
 
+def signhandler(opts):
+    with open(opts.infile,'r') as fd:
+        data = fd.read()
+    with open(opts.infile+'.sig','w') as fd:
+        fd.write(sign(data, self=Identity(opts.self, basedir=opts.basedir)))
+
+def keysignhandler(opts):
+    fname="%s/pk/%s.pk" % (opts.basedir, opts.name)
+    with open(fname,'r') as fd:
+        data = fd.read()
+    with open(fname+'.sig','a') as fd:
+        sig = sign(data, self=Identity(opts.self, basedir=opts.basedir))
+        fd.write(sig[:32]+sig[-32:])
+
+def keycheckhandler(opts):
+    fname="%s/pk/%s.pk" % (opts.basedir, opts.name)
+    with open(fname,'r') as fd:
+        pk = fd.read()
+    sigs=[]
+    with open(fname+".sig",'r') as fd:
+        sigdat=fd.read()
+    i=0
+    while i<len(sigdat)/64:
+        res = verify(sigdat[i*64:i*64+32]+pk+sigdat[i*64+32:i*64+64], basedir=opts.basedir)
+        if res:
+            sigs.append(res[0])
+        i+=1
+    print 'good signatures on', opts.name, 'from', ', '.join(sigs)
+
+def verifyhandler(opts):
+    with open(opts.infile,'r') as fd:
+        data = fd.read()
+    sender, msg = verify(data, basedir=opts.basedir) or ('', 'verification failed')
+    if len(sender)>0:
+        print msg
+        print >>sys.stderr, "good message from", sender
+    else:
+        print >>sys.stderr, msg
+
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
     group = parser.add_mutually_exclusive_group()
@@ -320,19 +357,22 @@ def main():
     group.add_argument('--encrypt',     '-c',  dest='action', action='store_const', const='c',help="encrypts stdin")
     group.add_argument('--decrypt',     '-d',  dest='action', action='store_const', const='d',help="decrypts stdin")
     group.add_argument('--sign',        '-s',  dest='action', action='store_const', const='s',help="signs stdin")
+    group.add_argument('--master-sign', '-m',  dest='action', action='store_const', const='m',help="signs stdin with your masterkey")
     group.add_argument('--verify',      '-v',  dest='action', action='store_const', const='v',help="verifies stdin")
     group.add_argument('--list',        '-l',  dest='action', action='store_const', const='l',help="lists public keys")
     group.add_argument('--list-secret', '-L',  dest='action', action='store_const', const='L',help="Lists secret keys")
+    group.add_argument('--check-sigs',  '-C',  dest='action', action='store_const', const='C',help="lists all known sigs on a public key")
 
     parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
     parser.add_argument('--basedir',    '-b', '--base-dir', help="designates a recipient for public key encryption", default=defaultbase)
     parser.add_argument('--self',       '-S', help="sets your own key")
     parser.add_argument('--infile',     '-i', help="file to operate on")
-    parser.add_argument('--armor',      '-a', help="ascii armors the output [TODO]")
+    parser.add_argument('--armor',      '-a', action='store_true', help="ascii armors the output [TODO]")
     parser.add_argument('--outfile',    '-o', help="file to operate on [TODO]")
     opts=parser.parse_args()
 
+    opts.basedir=os.path.expandvars( os.path.expanduser(opts.basedir))
     # Generate key
     if opts.action=='g':
         if not opts.name:
@@ -378,10 +418,27 @@ def main():
             print >>sys.stderr, "Error: need to specify your own key using " \
                                 "the --self param"
             sys.exit(1)
-        with open(opts.infile,'r') as fd:
-            data = fd.read()
-        with open(opts.infile+'.sig','w') as fd:
-            fd.write(sign(data, self=Identity(opts.self, basedir=opts.basedir)))
+        signhandler(opts)
+
+    # key sign
+    elif opts.action=='m':
+        if not opts.name:
+            print >>sys.stderr, "Error: need to specify a key to operate " \
+                                "on using the --name param"
+            sys.exit(1)
+        if not opts.self:
+            print >>sys.stderr, "Error: need to specify your own key using " \
+                                "the --self param"
+            sys.exit(1)
+        keysignhandler(opts)
+
+    # lists signatures owners on public keys
+    elif opts.action=='C':
+        if not opts.name:
+            print >>sys.stderr, "Error: need to specify a key to operate " \
+                                "on using the --name param"
+            sys.exit(1)
+        keycheckhandler(opts)
 
     # verify
     elif opts.action=='v':
@@ -389,14 +446,7 @@ def main():
             print >>sys.stderr, "Error: need to specify a file to operate " \
                                 "on using the --in param"
             sys.exit(1)
-        with open(opts.infile,'r') as fd:
-            data = fd.read()
-            sender, msg = verify(data, basedir=opts.basedir) or ('', 'verification failed')
-        if len(sender)>0:
-            print msg
-            print >>sys.stderr, "good message from", sender
-        else:
-            print >>sys.stderr, msg
+        verifyhandler(opts)
 
 if __name__ == '__main__':
     #__test()
