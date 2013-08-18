@@ -6,6 +6,12 @@
 # unfortunately all this is neccessary as nacl needs to be compiled as
 # a dependency.
 
+# (c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
+# v0.1 - experimental
+# TODO implement buffering for file ops
+# TODO implement ascii armoring
+# TODO implement --outfile
+
 set -x
 wget http://hyperelliptic.org/nacl/nacl-20110221.tar.bz2 || exit 1
 bunzip2 < nacl-20110221.tar.bz2 | tar -xf -
@@ -24,3 +30,5 @@ cd pbp
 
 virtualenv env
 pip install -r deps.txt
+
+./pbp.py -h
