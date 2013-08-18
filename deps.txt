@@ -1,0 +1,3 @@
+git+git://github.com/seanlynch/pynacl.git
+scrypt
+iso8601
