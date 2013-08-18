@@ -1,3 +1,8 @@
+# pbp
+#
+# this is a simple python wrapper around nacl, to provide basic functionality resembling PGP
+# it uses scrypt for a KDF and a much simpler packet format, that is much harder to fingerprint.
+
 # this is a automatic install script besides
 # use:
 # wget -O - https://raw.github.com/stef/pbp/master/readme.txt | sh -
