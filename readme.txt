@@ -2,6 +2,9 @@
 # use:
 # wget -O - https://raw.github.com/stef/pbp/master/readme.txt | sh -
 # to install pbp automatically
+# you possibly need to run (or an equivalent command)
+# sudo apt-get install git python-virtualenv gcc
+# to satisfy all basic dependencies
 
 # unfortunately all this is neccessary as nacl needs to be compiled as
 # a dependency.
