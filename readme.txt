@@ -39,3 +39,7 @@ pip install -r deps.txt
 
 # check out test.sh for examples how to use pbp.py
 ./pbp.py -h
+
+echo "running test.sh"
+echo "hint: enter 'a' as a password everywhere, and it'll be easy"
+./test.sh
