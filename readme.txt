@@ -13,7 +13,6 @@
 # v0.1 - experimental
 # TODO implement buffering for file ops
 # TODO implement ascii armoring
-# TODO implement --outfile
 
 set -x
 git clone https://github.com/stef/pbp.git
