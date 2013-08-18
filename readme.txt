@@ -31,4 +31,5 @@ cd pbp
 virtualenv env
 pip install -r deps.txt
 
+# check out test.sh for examples how to use pbp.py
 ./pbp.py -h
