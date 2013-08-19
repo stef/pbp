@@ -24,8 +24,8 @@ class Identity(object):
                 os.mkdir(self.basedir)
                 os.chmod(self.basedir,
                          stat.S_IREAD|stat.S_IWRITE|stat.S_IEXEC)
-                os.mkdir(self.basedir+'/pk')
-                os.mkdir(self.basedir+'/sk')
+                os.mkdir(get_pk_dir(self.basedir))
+                os.mkdir(get_sk_dir(self.basedir))
             self.create()
 
     def __getattr__(self,name):
@@ -131,18 +131,30 @@ class Identity(object):
     @staticmethod
     def getpkeys(basedir=defaultbase):
         basedir=os.path.expandvars(os.path.expanduser(basedir))
-        for k in os.listdir("%s/pk/" % basedir):
+        pk_dir = get_pk_dir(basedir)
+        if not os.path.exists(pk_dir):
+            return
+        for k in os.listdir(pk_dir):
             if k.endswith('.pk'):
                 yield Identity(k[:-3], publicOnly=True, basedir=basedir)
 
     @staticmethod
     def getskeys(basedir=defaultbase):
         basedir=os.path.expandvars(os.path.expanduser(basedir))
-        seen=[]
-        for k in os.listdir("%s/sk/" % basedir):
+        seen = set()
+        sk_dir = get_sk_dir(basedir)
+        if not os.path.exists(sk_dir):
+            return
+        for k in os.listdir(sk_dir):
             if k[-3:] in ['.mk','.sk'] and k[:-3] not in seen:
-                seen.append(k[:-3])
+                seen.add(k[:-3])
                 yield Identity(k[:-3], basedir=basedir)
+
+def get_sk_dir(basedir):
+    return os.path.join(basedir, 'sk')
+
+def get_pk_dir(basedir):
+    return os.path.join(basedir, 'pk')
 
 def getkey(l, pwd='', empty=False):
     # queries the user for a passphrase if neccessary, and
@@ -150,13 +162,13 @@ def getkey(l, pwd='', empty=False):
     global _prev_passphrase
     if not pwd:
         pwd2 = not pwd
-        if len(_prev_passphrase)>0:
+        if _prev_passphrase:
             print >>sys.stderr, "press enter to reuse the previous passphrase"
         while pwd != pwd2 or (not empty and not pwd.strip()):
             pwd = getpass.getpass('1/2 Passphrase: ')
             if len(pwd.strip()):
                 pwd2 = getpass.getpass('2/2 Repeat passphrase: ')
-            elif _prev_passphrase != None:
+            elif _prev_passphrase is not None:
                 pwd = _prev_passphrase
                 break
     if pwd.strip():
