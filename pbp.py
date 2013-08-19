@@ -56,11 +56,9 @@ class Identity(object):
     def save(self):
         # save secret master key
         if self.ms:
-            print >>sys.stderr, "Master ",
             self.savesecretekey("mk", self.ms)
         # save secret sub-keys
         if self.cs or self.ss:
-            print >>sys.stderr, "Subkey ",
             self.savesecretekey("sk", self.ss+self.cs)
         # save public keys
         self.savepublickeys()
@@ -122,7 +120,9 @@ class Identity(object):
 
     def savesecretekey(self, ext, key):
         fname="%s/sk/%s.%s" % (self.basedir, self.name, ext)
-        k = getkey(nacl.crypto_secretbox_KEYBYTES, empty=True)
+        k = getkey(nacl.crypto_secretbox_KEYBYTES,
+                   empty=True,
+                   text='Master' if ext == 'mk' else 'Subkey')
         nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
         with open(fname,'w') as fd:
             fd.write(nonce)
@@ -304,8 +304,12 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
                                   basedir=basedir,
                                   self=Identity(self, basedir=basedir)) or ('', 'decryption failed')
             if sender:
+                if not outfile:
+                    print msg
+                else:
+                    with open(outfile,'w') as fd:
+                        fd.write(msg)
                 print >>sys.stderr, 'good message from', sender
-                print msg
             else:
                 print >>sys.stderr, msg
             return
@@ -329,24 +333,38 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
         else:
             print >>sys.stderr,  'decryption failed'
 
-def signhandler(opts):
-    with open(opts.infile,'r') as fd:
+def sign_handler(infile, outfile=None, self=None, basedir=None):
+    with open(infile,'r') as fd:
         data = fd.read()
-    with open(opts.infile+'.sig','w') as fd:
-        fd.write(sign(data, self=Identity(opts.self, basedir=opts.basedir)))
+    with open(outfile or infile+'.sig','w') as fd:
+        fd.write(sign(data, self=Identity(self, basedir=basedir)))
 
-def keysignhandler(opts):
-    fname="%s/pk/%s.pk" % (opts.basedir, opts.name)
+def verify_handler(infile, outfile=None, basedir=None):
+    with open(infile,'r') as fd:
+        data = fd.read()
+    sender, msg = verify(data, basedir=basedir) or ('', 'verification failed')
+    if len(sender)>0:
+        if outfile:
+            with open(outfile,'w') as fd:
+                fd.write(msg)
+        else:
+            print msg
+        print >>sys.stderr, "good message from", sender
+    else:
+        print >>sys.stderr, msg
+
+def keysign_handler(infile, name=None, self=None, basedir=None):
+    fname="%s/pk/%s.pk" % (basedir, name)
     with open(fname,'r') as fd:
         data = fd.read()
     with open(fname+'.sig','a') as fd:
         sig = sign(data,
-                   self=Identity(opts.self, basedir=opts.basedir),
+                   self=Identity(self, basedir=basedir),
                    master=True)
         fd.write(sig[:32]+sig[-32:])
 
-def keycheckhandler(opts):
-    fname="%s/pk/%s.pk" % (opts.basedir, opts.name)
+def keycheck_handler(name=None, basedir=None):
+    fname="%s/pk/%s.pk" % (basedir, name)
     with open(fname,'r') as fd:
         pk = fd.read()
     sigs=[]
@@ -355,22 +373,12 @@ def keycheckhandler(opts):
     i=0
     while i<len(sigdat)/64:
         res = verify(sigdat[i*64:i*64+32]+pk+sigdat[i*64+32:i*64+64],
-                     basedir=opts.basedir,
+                     basedir=basedir,
                      master=True)
         if res:
             sigs.append(res[0])
         i+=1
-    print 'good signatures on', opts.name, 'from', ', '.join(sigs)
-
-def verifyhandler(opts):
-    with open(opts.infile,'r') as fd:
-        data = fd.read()
-    sender, msg = verify(data, basedir=opts.basedir) or ('', 'verification failed')
-    if len(sender)>0:
-        print msg
-        print >>sys.stderr, "good message from", sender
-    else:
-        print >>sys.stderr, msg
+    print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
 
 def save_fwd(fname, data, self):
     nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
@@ -387,27 +395,27 @@ def load_fwd(fname, self):
             plain[nacl.crypto_secretbox_KEYBYTES*2:nacl.crypto_secretbox_KEYBYTES*3],
             plain[nacl.crypto_secretbox_KEYBYTES*3:nacl.crypto_secretbox_KEYBYTES*4])
 
-def fwd_encrypt_handler(opts):
+def fwd_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
     mynext = myprev = onext = oprev = ('\0' * nacl.crypto_secretbox_KEYBYTES)
-    keyfdir="%s/sk/.%s" % (opts.basedir, opts.self)
-    self=Identity(opts.self, basedir=opts.basedir)
+    keyfdir="%s/sk/.%s" % (basedir, self)
+    self=Identity(self, basedir=basedir)
     if not os.path.exists(keyfdir):
         os.mkdir(keyfdir)
-    keyfname='%s/%s' % (keyfdir, opts.recipient[0])
+    keyfname='%s/%s' % (keyfdir, recipient[0])
     if os.path.exists(keyfname):
         mynext, myprev, onext, oprev = load_fwd(keyfname, self)
     while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
     save_fwd(keyfname, ''.join((mynext, myprev, onext, oprev)), self)
 
-    with open(opts.infile,'r') as fd:
+    with open(infile,'r') as fd:
         msg=fd.read()
-    output_filename = opts.outfile if opts.outfile else opts.infile + '.pbp'
+    output_filename = outfile if outfile else infile + '.pbp'
 
     if myprev == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         # encrypt using public key
         type, nonce, r, cipher = encrypt(mynext+msg,
-                                         recipients=[Identity(opts.recipient[0], basedir=opts.basedir)],
+                                         recipients=[Identity(recipient[0], basedir=basedir)],
                                           self=self)
         with open(output_filename, 'w') as fd:
             fd.write(nonce)
@@ -422,18 +430,18 @@ def fwd_encrypt_handler(opts):
             fd.write(nonce)
             fd.write(cipher)
 
-def fwd_decrypt_handler(opts):
-    output_filename = opts.outfile if opts.outfile else opts.infile + '.pbp'
+def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
+    output_filename = outfile if outfile else infile + '.pbp'
     mynext = myprev = onext = oprev = ('\0' * nacl.crypto_secretbox_KEYBYTES)
-    keyfdir="%s/sk/.%s" % (opts.basedir, opts.self)
-    self=Identity(opts.self, basedir=opts.basedir)
+    keyfdir="%s/sk/.%s" % (basedir, self)
+    self=Identity(self, basedir=basedir)
     if not os.path.exists(keyfdir):
         os.mkdir(keyfdir)
-    keyfname='%s/%s' % (keyfdir, opts.recipient[0])
+    keyfname='%s/%s' % (keyfdir, recipient[0])
     if os.path.exists(keyfname):
         mynext, myprev, onext, oprev = load_fwd(keyfname, self)
     if onext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
-        with open(opts.infile,'r') as fd:
+        with open(infile,'r') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             rnonce=fd.read(nacl.crypto_box_NONCEBYTES)
             ct = fd.read(struct.unpack('B',fd.read(1))[0])
@@ -441,7 +449,7 @@ def fwd_decrypt_handler(opts):
                            nonce,
                            [(rnonce,ct)],
                            fd.read()),
-                          basedir=opts.basedir,
+                          basedir=basedir,
                           self=self)
         if not res:
             print >>sys.stderr, "could not decrypt with public key"
@@ -455,7 +463,7 @@ def fwd_decrypt_handler(opts):
         with open(output_filename, 'w') as fd:
             fd.write(res[1][nacl.crypto_secretbox_KEYBYTES:])
     else:
-        with open(opts.infile,'r') as fd:
+        with open(infile,'r') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             res = decrypt(('c', nonce, fd.read()), k=onext )
             if not res:
@@ -554,7 +562,20 @@ def main():
             print >>sys.stderr, "Error: need to specify your own key using " \
                                 "the --self param"
             sys.exit(1)
-        signhandler(opts)
+        sign_handler(infile=opts.infile,
+                     outfile=opts.outfile,
+                     self=opts.self,
+                     basedir=opts.basedir)
+
+    # verify
+    elif opts.action=='v':
+        if not opts.infile:
+            print >>sys.stderr, "Error: need to specify a file to operate " \
+                                "on using the --in param"
+            sys.exit(1)
+        verify_handler(infile=opts.infile,
+                     outfile=opts.outfile,
+                     basedir=opts.basedir)
 
     # key sign
     elif opts.action=='m':
@@ -566,7 +587,10 @@ def main():
             print >>sys.stderr, "Error: need to specify your own key using " \
                                 "the --self param"
             sys.exit(1)
-        keysignhandler(opts)
+        keysign_handler(infile=opts.infile,
+                        name=opts.name,
+                        self=opts.self,
+                        basedir=opts.basedir)
 
     # lists signatures owners on public keys
     elif opts.action=='C':
@@ -574,15 +598,8 @@ def main():
             print >>sys.stderr, "Error: need to specify a key to operate " \
                                 "on using the --name param"
             sys.exit(1)
-        keycheckhandler(opts)
-
-    # verify
-    elif opts.action=='v':
-        if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to operate " \
-                                "on using the --in param"
-            sys.exit(1)
-        verifyhandler(opts)
+        keycheck_handler(name=opts.name,
+                         basedir=opts.basedir)
 
     # forward encrypt
     elif opts.action=='e':
@@ -599,7 +616,11 @@ def main():
             print >>sys.stderr, "Error: need to specify your own key using " \
                                 "the --self param"
             sys.exit(1)
-        fwd_encrypt_handler(opts)
+        fwd_encrypt_handler(infile=opts.infile,
+                        outfile=opts.outfile,
+                        recipient=opts.recipient,
+                        self=opts.self,
+                        basedir=opts.basedir)
 
     # forward decrypt
     elif opts.action=='E':
@@ -616,7 +637,11 @@ def main():
             print >>sys.stderr, "Error: need to specify your own key using " \
                                 "the --self param"
             sys.exit(1)
-        fwd_decrypt_handler(opts)
+        fwd_decrypt_handler(infile=opts.infile,
+                            outfile=opts.outfile,
+                            recipient=opts.recipient,
+                            self=opts.self,
+                            basedir=opts.basedir)
 
 if __name__ == '__main__':
     #__test()
