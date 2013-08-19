@@ -362,9 +362,6 @@ def verifyhandler(opts):
         print >>sys.stderr, msg
 
 def save_fwd(fname, mynext, myprev, onext):
-    print 'mn', b85encode(mynext)
-    print 'mp', b85encode(myprev)
-    print 'op', b85encode(onext)
     with open(fname,'w') as fd:
         fd.write(mynext)
         fd.write(myprev)
@@ -384,9 +381,6 @@ def fwd_encrypt_handler(opts):
     keyfname='%s/%s' % (keyfdir, opts.recipient[0])
     if os.path.exists(keyfname):
         mynext, myprev, onext = load_fwd(keyfname)
-    print 'mn', b85encode(mynext)
-    print 'mp', b85encode(myprev)
-    print 'op', b85encode(onext)
     while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
     save_fwd(keyfname, mynext, myprev, onext)
@@ -422,9 +416,6 @@ def fwd_decrypt_handler(opts):
     keyfname='%s/%s' % (keyfdir, opts.recipient[0])
     if os.path.exists(keyfname):
         mynext, myprev, onext = load_fwd(keyfname)
-    print 'mn', b85encode(mynext)
-    print 'mp', b85encode(myprev)
-    print 'op', b85encode(onext)
     if onext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         with open(opts.infile,'r') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
