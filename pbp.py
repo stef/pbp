@@ -141,13 +141,13 @@ class Identity(object):
     @staticmethod
     def getskeys(basedir=defaultbase):
         basedir=os.path.expandvars(os.path.expanduser(basedir))
-        seen=[]
+        seen = set()
         sk_dir = os.path.join(basedir, 'sk')
         if not os.path.exists(sk_dir):
             return
         for k in os.listdir(sk_dir):
             if k[-3:] in ['.mk','.sk'] and k[:-3] not in seen:
-                seen.append(k[:-3])
+                seen.add(k[:-3])
                 yield Identity(k[:-3], basedir=basedir)
 
 def getkey(l, pwd='', empty=False):
