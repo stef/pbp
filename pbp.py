@@ -150,7 +150,7 @@ def getkey(l, pwd='', empty=False):
     global _prev_passphrase
     if not pwd:
         pwd2 = not pwd
-        if len(_prev_passphrase)>0:
+        if _prev_passphrase:
             print >>sys.stderr, "press enter to reuse the previous passphrase"
         while pwd != pwd2 or (not empty and not pwd.strip()):
             pwd = getpass.getpass('1/2 Passphrase: ')
