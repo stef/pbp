@@ -102,9 +102,8 @@ class Identity(object):
                     k = scrypt.hash(getpass.getpass('Passphrase for decrypting subkeys for %s: ' % self.name),
                                     scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
                     tmp=nacl.crypto_secretbox_open(fd.read(), nonce, k)
-                    i=nacl.crypto_sign_SECRETKEYBYTES
-                    if type == 'ss': self.ss=tmp[:i]
-                    if type == 'cs': self.cs=tmp[i:]
+                    if type == 'ss': self.ss=tmp[:nacl.crypto_sign_SECRETKEYBYTES]
+                    if type == 'cs': self.cs=tmp[nacl.crypto_sign_SECRETKEYBYTES:]
 
         elif type == 'ms':
             tmp="%s/sk/%s.mk" % (self.basedir, self.name)
@@ -374,29 +373,33 @@ def verifyhandler(opts):
     else:
         print >>sys.stderr, msg
 
-def save_fwd(fname, mynext, myprev, onext):
+def save_fwd(fname, data, self):
+    nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
     with open(fname,'w') as fd:
-        fd.write(mynext)
-        fd.write(myprev)
-        fd.write(onext)
+        fd.write(nonce)
+        fd.write(nacl.crypto_box(data, nonce, self.cp, self.cs))
 
-def load_fwd(fname):
+def load_fwd(fname, self):
     with open(fname,'r') as fd:
-        return (fd.read(nacl.crypto_secretbox_KEYBYTES),
-                fd.read(nacl.crypto_secretbox_KEYBYTES),
-                fd.read(nacl.crypto_secretbox_KEYBYTES))
+        nonce = fd.read(nacl.crypto_box_NONCEBYTES)
+        plain =  nacl.crypto_box_open(fd.read(), nonce, self.cp, self.cs)
+    return (plain[:nacl.crypto_secretbox_KEYBYTES],
+            plain[nacl.crypto_secretbox_KEYBYTES:nacl.crypto_secretbox_KEYBYTES*2],
+            plain[nacl.crypto_secretbox_KEYBYTES*2:nacl.crypto_secretbox_KEYBYTES*3],
+            plain[nacl.crypto_secretbox_KEYBYTES*3:nacl.crypto_secretbox_KEYBYTES*4])
 
 def fwd_encrypt_handler(opts):
-    mynext = myprev = onext = ('\0' * nacl.crypto_secretbox_KEYBYTES)
+    mynext = myprev = onext = oprev = ('\0' * nacl.crypto_secretbox_KEYBYTES)
     keyfdir="%s/sk/.%s" % (opts.basedir, opts.self)
+    self=Identity(opts.self, basedir=opts.basedir)
     if not os.path.exists(keyfdir):
         os.mkdir(keyfdir)
     keyfname='%s/%s' % (keyfdir, opts.recipient[0])
     if os.path.exists(keyfname):
-        mynext, myprev, onext = load_fwd(keyfname)
+        mynext, myprev, onext, oprev = load_fwd(keyfname, self)
     while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-    save_fwd(keyfname, mynext, myprev, onext)
+    save_fwd(keyfname, ''.join((mynext, myprev, onext, oprev)), self)
 
     with open(opts.infile,'r') as fd:
         msg=fd.read()
@@ -406,7 +409,7 @@ def fwd_encrypt_handler(opts):
         # encrypt using public key
         type, nonce, r, cipher = encrypt(mynext+msg,
                                          recipients=[Identity(opts.recipient[0], basedir=opts.basedir)],
-                                          self=Identity(opts.self, basedir=opts.basedir))
+                                          self=self)
         with open(output_filename, 'w') as fd:
             fd.write(nonce)
             fd.write(r[0][0])
@@ -422,13 +425,14 @@ def fwd_encrypt_handler(opts):
 
 def fwd_decrypt_handler(opts):
     output_filename = opts.outfile if opts.outfile else opts.infile + '.pbp'
-    mynext = myprev = onext = ('\0' * nacl.crypto_secretbox_KEYBYTES)
+    mynext = myprev = onext = oprev = ('\0' * nacl.crypto_secretbox_KEYBYTES)
     keyfdir="%s/sk/.%s" % (opts.basedir, opts.self)
+    self=Identity(opts.self, basedir=opts.basedir)
     if not os.path.exists(keyfdir):
         os.mkdir(keyfdir)
     keyfname='%s/%s' % (keyfdir, opts.recipient[0])
     if os.path.exists(keyfname):
-        mynext, myprev, onext = load_fwd(keyfname)
+        mynext, myprev, onext, oprev = load_fwd(keyfname, self)
     if onext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         with open(opts.infile,'r') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
@@ -439,7 +443,7 @@ def fwd_decrypt_handler(opts):
                            [(rnonce,ct)],
                            fd.read()),
                           basedir=opts.basedir,
-                          self=Identity(opts.self, basedir=opts.basedir))
+                          self=self)
         if not res:
             print >>sys.stderr, "could not decrypt with public key"
             sys.exit(1)
@@ -448,7 +452,7 @@ def fwd_decrypt_handler(opts):
         while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
             mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
         onext = res[1][:nacl.crypto_secretbox_KEYBYTES]
-        save_fwd(keyfname, mynext, myprev, onext)
+        save_fwd(keyfname, ''.join((mynext, myprev, onext, oprev)), self)
         with open(output_filename, 'w') as fd:
             fd.write(res[1][nacl.crypto_secretbox_KEYBYTES:])
     else:
@@ -464,7 +468,7 @@ def fwd_decrypt_handler(opts):
         while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
             mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
         onext = res[:nacl.crypto_secretbox_KEYBYTES]
-        save_fwd(keyfname, mynext, myprev, onext)
+        save_fwd(keyfname, ''.join((mynext, myprev, onext, oprev)), self)
         with open(output_filename, 'w') as fd:
             fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
 
