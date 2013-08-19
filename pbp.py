@@ -163,18 +163,18 @@ def getkey(l, pwd='', empty=False):
         _prev_passphrase = pwd
         return scrypt.hash(pwd, scrypt_salt)[:l]
 
-def encrypt(msg, recipients=None, stream=False, pwd=None, self=None):
+def encrypt(msg, recipients=None, stream=False, pwd=None, self=None, k=None):
     # encrypts msg
     if not recipients:
         if stream:
             nonce = nacl.randombytes(nacl.crypto_stream_NONCEBYTES)
-            k = getkey(nacl.crypto_stream_KEYBYTES, pwd=pwd)
+            if not k: k = getkey(nacl.crypto_stream_KEYBYTES, pwd=pwd)
             return ('s', nonce, nacl.crypto_stream_xor(msg, nonce, k))
         nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-        k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
+        if not k: k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
         return ('c', nonce, nacl.crypto_secretbox(msg, nonce, k))
     sk = self.cs
-    mk = nacl.randombytes(nacl.crypto_stream_KEYBYTES)
+    mk = k or nacl.randombytes(nacl.crypto_stream_KEYBYTES)
     c=[]
     for r in recipients:
         nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
@@ -182,17 +182,19 @@ def encrypt(msg, recipients=None, stream=False, pwd=None, self=None):
     nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
     return ('a', nonce, c, nacl.crypto_secretbox(msg, nonce, mk))
 
-def decrypt(pkt, self=None, pwd=None, basedir=None):
+def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
     if pkt[0]=='s':
         # stream
-        if not pwd: pwd = getpass.getpass('Passphrase for decrypting: ')
-        k = scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+        if not k:
+            if not pwd: pwd = getpass.getpass('Passphrase for decrypting: ')
+            k = scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
 
         return nacl.crypto_stream_xor(pkt[2], pkt[1], k)
     if pkt[0]=='c':
         # symmetric
-        if not pwd: pwd = getpass.getpass('Passphrase for decrypting: ')
-        k = scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+        if not k:
+            if not pwd: pwd = getpass.getpass('Passphrase for decrypting: ')
+            k = scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
 
         return nacl.crypto_secretbox_open(pkt[2], pkt[1], k)
 
@@ -359,6 +361,109 @@ def verifyhandler(opts):
     else:
         print >>sys.stderr, msg
 
+def save_fwd(fname, mynext, myprev, onext):
+    print 'mn', b85encode(mynext)
+    print 'mp', b85encode(myprev)
+    print 'op', b85encode(onext)
+    with open(fname,'w') as fd:
+        fd.write(mynext)
+        fd.write(myprev)
+        fd.write(onext)
+
+def load_fwd(fname):
+    with open(fname,'r') as fd:
+        return (fd.read(nacl.crypto_secretbox_KEYBYTES),
+                fd.read(nacl.crypto_secretbox_KEYBYTES),
+                fd.read(nacl.crypto_secretbox_KEYBYTES))
+
+def fwd_encrypt_handler(opts):
+    mynext = myprev = onext = ('\0' * nacl.crypto_secretbox_KEYBYTES)
+    keyfdir="%s/sk/.%s" % (opts.basedir, opts.self)
+    if not os.path.exists(keyfdir):
+        os.mkdir(keyfdir)
+    keyfname='%s/%s' % (keyfdir, opts.recipient[0])
+    if os.path.exists(keyfname):
+        mynext, myprev, onext = load_fwd(keyfname)
+    print 'mn', b85encode(mynext)
+    print 'mp', b85encode(myprev)
+    print 'op', b85encode(onext)
+    while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+        mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+    save_fwd(keyfname, mynext, myprev, onext)
+
+    with open(opts.infile,'r') as fd:
+        msg=fd.read()
+    output_filename = opts.outfile if opts.outfile else opts.infile + '.pbp'
+
+    if myprev == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+        # encrypt using public key
+        type, nonce, r, cipher = encrypt(mynext+msg,
+                                         recipients=[Identity(opts.recipient[0], basedir=opts.basedir)],
+                                          self=Identity(opts.self, basedir=opts.basedir))
+        with open(output_filename, 'w') as fd:
+            fd.write(nonce)
+            fd.write(r[0][0])
+            fd.write(struct.pack("B",len(r[0][1])))
+            fd.write(r[0][1])
+            fd.write(cipher)
+    else:
+        # encrypt using old fwd key
+        type, nonce, cipher = encrypt(mynext+msg, k=myprev)
+        with open(output_filename, 'w') as fd:
+            fd.write(nonce)
+            fd.write(cipher)
+
+def fwd_decrypt_handler(opts):
+    output_filename = opts.outfile if opts.outfile else opts.infile + '.pbp'
+    mynext = myprev = onext = ('\0' * nacl.crypto_secretbox_KEYBYTES)
+    keyfdir="%s/sk/.%s" % (opts.basedir, opts.self)
+    if not os.path.exists(keyfdir):
+        os.mkdir(keyfdir)
+    keyfname='%s/%s' % (keyfdir, opts.recipient[0])
+    if os.path.exists(keyfname):
+        mynext, myprev, onext = load_fwd(keyfname)
+    print 'mn', b85encode(mynext)
+    print 'mp', b85encode(myprev)
+    print 'op', b85encode(onext)
+    if onext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+        with open(opts.infile,'r') as fd:
+            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+            rnonce=fd.read(nacl.crypto_box_NONCEBYTES)
+            ct = fd.read(struct.unpack('B',fd.read(1))[0])
+            res = decrypt(('a',
+                           nonce,
+                           [(rnonce,ct)],
+                           fd.read()),
+                          basedir=opts.basedir,
+                          self=Identity(opts.self, basedir=opts.basedir))
+        if not res:
+            print >>sys.stderr, "could not decrypt with public key"
+            sys.exit(1)
+        myprev = mynext
+        mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+        while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+            mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+        onext = res[1][:nacl.crypto_secretbox_KEYBYTES]
+        save_fwd(keyfname, mynext, myprev, onext)
+        with open(output_filename, 'w') as fd:
+            fd.write(res[1][nacl.crypto_secretbox_KEYBYTES:])
+    else:
+        with open(opts.infile,'r') as fd:
+            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+            res = decrypt(('c', nonce, fd.read()), k=onext )
+            if not res:
+                print >>sys.stderr, "could not decrypt with fwd key"
+                sys.exit(1)
+
+        myprev = mynext
+        mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+        while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+            mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+        onext = res[:nacl.crypto_secretbox_KEYBYTES]
+        save_fwd(keyfname, mynext, myprev, onext)
+        with open(output_filename, 'w') as fd:
+            fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
+
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
     group = parser.add_mutually_exclusive_group()
@@ -371,6 +476,8 @@ def main():
     group.add_argument('--list',        '-l',  dest='action', action='store_const', const='l',help="lists public keys")
     group.add_argument('--list-secret', '-L',  dest='action', action='store_const', const='L',help="Lists secret keys")
     group.add_argument('--check-sigs',  '-C',  dest='action', action='store_const', const='C',help="lists all known sigs on a public key")
+    group.add_argument('--fcrypt',      '-e',  dest='action', action='store_const', const='e',help="encrypts a message using PFS to a peer")
+    group.add_argument('--fdecrypt',    '-E',  dest='action', action='store_const', const='E',help="decrypts a message using PFS to a peer")
 
     parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
@@ -378,7 +485,7 @@ def main():
     parser.add_argument('--self',       '-S', help="sets your own key")
     parser.add_argument('--infile',     '-i', help="file to operate on")
     parser.add_argument('--armor',      '-a', action='store_true', help="ascii armors the output [TODO]")
-    parser.add_argument('--outfile',    '-o', help="file to operate on")
+    parser.add_argument('--outfile',    '-o', help="file to output to")
     opts=parser.parse_args()
 
     opts.basedir=os.path.expandvars( os.path.expanduser(opts.basedir))
@@ -456,6 +563,40 @@ def main():
                                 "on using the --in param"
             sys.exit(1)
         verifyhandler(opts)
+
+    # forward encrypt
+    elif opts.action=='e':
+        if not opts.infile:
+            print >>sys.stderr, "Error: need to specify a file to " \
+                                "operate on using the --in param"
+            sys.exit(1)
+        if not opts.recipient:
+            print >>sys.stderr, "Error: need to specify a recipient to " \
+                                "operate on using the --recipient param"
+            sys.exit(1)
+        if not opts.self:
+            # TODO could try to find out this automatically if non-ambiguous
+            print >>sys.stderr, "Error: need to specify your own key using " \
+                                "the --self param"
+            sys.exit(1)
+        fwd_encrypt_handler(opts)
+
+    # forward decrypt
+    elif opts.action=='E':
+        if not opts.infile:
+            print >>sys.stderr, "Error: need to specify a file to " \
+                                "operate on using the --in param"
+            sys.exit(1)
+        if not opts.recipient:
+            print >>sys.stderr, "Error: need to specify a recipient to " \
+                                "operate on using the --recipient param"
+            sys.exit(1)
+        if not opts.self:
+            # TODO could try to find out this automatically if non-ambiguous
+            print >>sys.stderr, "Error: need to specify your own key using " \
+                                "the --self param"
+            sys.exit(1)
+        fwd_decrypt_handler(opts)
 
 if __name__ == '__main__':
     #__test()
