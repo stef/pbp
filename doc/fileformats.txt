@@ -1,21 +1,24 @@
-crypto output is always: nonce|c(msg)
+secret key crypto output is always: nonce|cipher(key, nonce, msg)
 signed output is always sig1[32]|msg|sig2[32]
 
 .mk - secret master key
-nonce|cipher(scrypt(passwd), master secret)
+nonce|cipher(scrypt(passwd), nonce, master secret)
 
 .sk - secret subkeys
-nonce|cipher(scrypt(passwd), cipher secret|signing secret)
+nonce|cipher(scrypt(passwd), nonce, cipher secret|signing secret)
 
 .pk - public keys
 sign(mk, master public | cipher public | sign public | created[32] | valid[32] | name... )
 
 pfs keys are for each peer one file like this:
-nonce|c(mk, mykey|mynextkey|peerkey|peernextkey)
+nonce|c(mk, nonce, mykey|mynextkey|peerkey|peernextkey)
 
 .sig - external signatures on public keys
 calculate sign(mk,pk) -> sig1[32]|pk|sig2[32]
 store sig1|sig2 appending to the .sig file.
 
-
+public key encrypted files have the following structure:
+  5[1]|nonce|len(recipients)[4]|[(recipients...)|c(packet key, nonce, msg)
+where recipients is a concatenated list of
+  random_nonce|c(recipient crypto pk, random_nonce, packet key)
 
