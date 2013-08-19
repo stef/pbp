@@ -168,7 +168,7 @@ def getkey(l, pwd='', empty=False):
             pwd = getpass.getpass('1/2 Passphrase: ')
             if len(pwd.strip()):
                 pwd2 = getpass.getpass('2/2 Repeat passphrase: ')
-            elif _prev_passphrase != None:
+            elif _prev_passphrase is not None:
                 pwd = _prev_passphrase
                 break
     if pwd.strip():
