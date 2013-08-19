@@ -131,7 +131,10 @@ class Identity(object):
     @staticmethod
     def getpkeys(basedir=defaultbase):
         basedir=os.path.expandvars(os.path.expanduser(basedir))
-        for k in os.listdir("%s/pk/" % basedir):
+        pk_dir = os.path.join(basedir, 'pk')
+        if not os.path.exists(pk_dir):
+            return
+        for k in os.listdir(pk_dir):
             if k.endswith('.pk'):
                 yield Identity(k[:-3], publicOnly=True, basedir=basedir)
 
