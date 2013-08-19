@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-import nacl, scrypt, iso8601 # external dependencies
+import nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from utils import split_by_n, b85encode
 
 # TODO make processing buffered!
 # TODO add output armoring
+# TODO encrypt fwd key files
 
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
@@ -45,8 +46,8 @@ class Identity(object):
         return ' '.join(split_by_n(binascii.b2a_hex(res).decode("ascii"), 4))
 
     def create(self):
-        self.created = datetime.datetime.now()
-        self.valid = datetime.datetime.now() + datetime.timedelta(days=365)
+        self.created = datetime.datetime.utcnow()
+        self.valid = datetime.datetime.utcnow() + datetime.timedelta(days=365)
         self.mp, self.ms = nacl.crypto_sign_keypair()
         self.sp, self.ss = nacl.crypto_sign_keypair()
         self.cp, self.cs = nacl.crypto_box_keypair()
@@ -90,8 +91,8 @@ class Identity(object):
             i+=nacl.crypto_sign_PUBLICKEYBYTES
             if type == 'cp': self.cp=tmp[i:i+nacl.crypto_box_PUBLICKEYBYTES]
             i+=nacl.crypto_box_PUBLICKEYBYTES
-            self.created=iso8601.parse_date(tmp[i:i+32].strip())
-            self.valid=iso8601.parse_date(tmp[i+32:i+64].strip())
+            self.created=datetime.datetime.strptime(tmp[i:i+32].strip(),"%Y-%m-%dT%H:%M:%S.%f")
+            self.valid=datetime.datetime.strptime(tmp[i+32:i+64].strip(),"%Y-%m-%dT%H:%M:%S.%f")
 
         elif type in ['cs', 'ss']:
             tmp="%s/sk/%s.sk" % (self.basedir, self.name)
@@ -502,13 +503,13 @@ def main():
     # list public keys
     elif opts.action=='l':
         for i in Identity.getpkeys(opts.basedir):
-            print ('valid' if i.valid > iso8601.parse_date(datetime.datetime.now().isoformat()) > i.created
+            print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
                    else 'invalid'), i.keyid(), i.name
 
     # list secret keys
     elif opts.action=='L':
         for i in Identity.getskeys(opts.basedir):
-            print ('valid' if i.valid > iso8601.parse_date(datetime.datetime.now().isoformat()) > i.created
+            print ('valid' if i.valid > datetime.utcdatetime.now() > i.created
                    else 'invalid'), i.keyid(), i.name
 
     # encrypt
