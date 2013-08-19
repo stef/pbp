@@ -1,16 +1,16 @@
 crypto output is always: nonce|c(msg)
 signed output is always sig1[32]|msg|sig2[32]
 
+.mk - secret master key
+nonce|cipher(scrypt(passwd), master secret)
+
 .sk - secret subkeys
 nonce|cipher(scrypt(passwd), cipher secret|signing secret)
 
 .pk - public keys
 sign(mk, master public | cipher public | sign public | created[32] | valid[32] | name... )
 
-.mk - secret master key
-nonce|cipher(scrypt(passwd), master secret)
-
-pfs keys are for each pear one file like this:
+pfs keys are for each peer one file like this:
 nonce|c(mk, mykey|mynextkey|peerkey|peernextkey)
 
 .sig - external signatures on public keys
