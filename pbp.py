@@ -156,7 +156,7 @@ def get_sk_dir(basedir):
 def get_pk_dir(basedir):
     return os.path.join(basedir, 'pk')
 
-def getkey(l, pwd='', empty=False):
+def getkey(l, pwd='', empty=False, text=''):
     # queries the user for a passphrase if neccessary, and
     # returns a scrypted key of length l
     global _prev_passphrase
@@ -165,9 +165,9 @@ def getkey(l, pwd='', empty=False):
         if _prev_passphrase:
             print >>sys.stderr, "press enter to reuse the previous passphrase"
         while pwd != pwd2 or (not empty and not pwd.strip()):
-            pwd = getpass.getpass('1/2 Passphrase: ')
+            pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
             if len(pwd.strip()):
-                pwd2 = getpass.getpass('2/2 Repeat passphrase: ')
+                pwd2 = getpass.getpass('2/2 %s Repeat passphrase: ' % text)
             elif _prev_passphrase is not None:
                 pwd = _prev_passphrase
                 break
@@ -241,23 +241,19 @@ def verify(msg, basedir=defaultbase, master=False):
                 return keys.name, nacl.crypto_sign_open(msg, keys.mp)
             except ValueError: pass
 
-def encrypt_handler(opts):
-    with open(opts.infile,'r') as fd:
+def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
+    with open(infile,'r') as fd:
         msg=fd.read()
-    output_filename = opts.outfile if opts.outfile else opts.infile + '.pbp'
-    if opts.recipient:
+    output_filename = outfile if outfile else infile + '.pbp'
+    if recipient and self:
         # let's do public key encryption
-        if not opts.self:
-            print >>sys.stderr, "Error: need to specify your own key using the --self param"
-            sys.exit(1)
         type, nonce, r, cipher = encrypt(msg,
-                                         recipients=[Identity(x, basedir=opts.basedir)
+                                         recipients=[Identity(x, basedir=basedir)
                                                      for x
-                                                     in opts.recipient],
-                                         self=Identity(opts.self, basedir=opts.basedir))
+                                                     in recipient],
+                                         self=Identity(self, basedir=basedir))
         if type!='a':
-            print >>sys.stderr, "Error: wrong encryption type"
-            sys.exit(1)
+            raise ValueError
         with open(output_filename, 'w') as fd:
             fd.write(struct.pack("B",5))
             fd.write(nonce)
@@ -283,17 +279,16 @@ def encrypt_handler(opts):
                 fd.write(nonce)
                 fd.write(cipher)
         else:
-            print >>sys.stderr, "Error: no symmetric key structure found"
-            sys.exit(1)
+            raise ValueError
 
-def decrypt_handler(opts):
-    with open(opts.infile,'r') as fd:
+def decrypt_handler(infile, outfile=None, self=None, basedir=None):
+    with open(infile,'r') as fd:
         type=struct.unpack('B',fd.read(1))[0]
         # asym
         if type == 5:
-            if not opts.self:
+            if not self:
                 print >>sys.stderr, "Error: need to specify your own key using the --self param"
-                sys.exit(1)
+                raise ValueError
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             size = struct.unpack('L',fd.read(4))[0]
             r=[]
@@ -306,8 +301,8 @@ def decrypt_handler(opts):
                                    nonce,
                                    r,
                                    fd.read()),
-                                  basedir=opts.basedir,
-                                  self=Identity(opts.self, basedir=opts.basedir)) or ('', 'decryption failed')
+                                  basedir=basedir,
+                                  self=Identity(self, basedir=basedir)) or ('', 'decryption failed')
             if sender:
                 print >>sys.stderr, 'good message from', sender
                 print msg
@@ -326,7 +321,11 @@ def decrypt_handler(opts):
             msg = decrypt(('s', nonce, fd.read()))
 
         if len(msg):
-            print msg
+            if not outfile:
+                print msg
+            else:
+                with open(outfile,'w') as fd:
+                    fd.write(msg)
         else:
             print >>sys.stderr,  'decryption failed'
 
@@ -522,7 +521,17 @@ def main():
             print >>sys.stderr, "Error: need to specify a file to " \
                                 "operate on using the --in param"
             sys.exit(1)
-        encrypt_handler(opts)
+        if opts.recipient and not opts.self:
+            print >>sys.stderr, "Error: need to specify your own key using the --self param"
+            sys.exit(1)
+        elif not opts.recipient and opts.self:
+            print >>sys.stderr, "Error: need to specify the recipient key using the --recipient param"
+            sys.exit(1)
+        encrypt_handler(infile=opts.infile,
+                        outfile=opts.outfile,
+                        recipient=opts.recipient,
+                        self=opts.self,
+                        basedir=opts.basedir)
 
     # decrypt
     elif opts.action=='d':
@@ -530,7 +539,10 @@ def main():
             print >>sys.stderr, "Error: need to specify a file to operate " \
                                 "on using the --in param"
             sys.exit(1)
-        decrypt_handler(opts)
+        decrypt_handler(infile=opts.infile,
+                        outfile=opts.outfile,
+                        self=opts.self,
+                        basedir=opts.basedir)
 
     # sign
     elif opts.action=='s':
