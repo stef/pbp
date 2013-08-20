@@ -403,6 +403,7 @@ def load_fwd(self, recipient, basedir):
             plain[nacl.crypto_secretbox_KEYBYTES*2:nacl.crypto_secretbox_KEYBYTES*3])
 
 def fwd_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
+    output_filename = outfile if outfile else infile + '.pbp'
     self=Identity(self, basedir=basedir)
     mynext, myprev, peer = load_fwd(self,recipient[0], basedir)
     oldnext = mynext
@@ -413,7 +414,6 @@ def fwd_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
 
     with open(infile,'r') as fd:
         msg=fd.read()
-    output_filename = outfile if outfile else infile + '.pbp'
 
     if peer == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         # encrypt using public key
@@ -434,7 +434,6 @@ def fwd_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
             fd.write(cipher)
 
 def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
-    output_filename = outfile if outfile else infile + '.pbp'
     self=Identity(self, basedir=basedir)
     mynext, myprev, peer = load_fwd(self,recipient[0], basedir)
 
@@ -457,7 +456,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
         if not outfile:
             print res[1][nacl.crypto_secretbox_KEYBYTES:]
         else:
-            with open(output_filename, 'w') as fd:
+            with open(outfile, 'w') as fd:
                 fd.write(res[1][nacl.crypto_secretbox_KEYBYTES:])
     else:
         newkey=False
@@ -482,7 +481,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
         if not outfile:
             print res[nacl.crypto_secretbox_KEYBYTES:]
         else:
-            with open(output_filename, 'w') as fd:
+            with open(outfile, 'w') as fd:
                 fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
     save_fwd(''.join((mynext, myprev, peer)), self, recipient[0], basedir)
 
