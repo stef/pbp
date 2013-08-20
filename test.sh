@@ -36,23 +36,19 @@ EOF
 ./pbp.py -C -n bob -b ./test-pbp || exit
 
 # test PFS mode
-rm ./test-pbp/sk/.alice/bob ./test-pbp/sk/.bob/alice
-./pbp.py -e -S alice -r bob -b ./test-pbp -i ./test-pbp/howdy.txt -o /tmp/a || exit
-./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/a -o /tmp/b || exit
-./pbp.py -e -S bob -r alice -b ./test-pbp/ -i /tmp/b -o /tmp/c || exit
-./pbp.py -E -S alice -r bob -b ./test-pbp/ -i /tmp/c -o /tmp/d || exit
-./pbp.py -e -S alice -r bob -b ./test-pbp/ -i /tmp/d -o /tmp/e || exit
-./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/e -o /tmp/f || exit
-./pbp.py -e -S bob -r alice -b ./test-pbp/ -i /tmp/f -o /tmp/g || exit
-./pbp.py -E -S alice -r bob -b ./test-pbp/ -i /tmp/g -o /tmp/h || exit
-./pbp.py -e -S alice -r bob -b ./test-pbp/ -i /tmp/h -o /tmp/i || exit
-./pbp.py -e -S alice -r bob -b ./test-pbp/ -i test.sh -o /tmp/k || exit
-./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/k -o /tmp/k1 || exit
-echo "difference between test.sh and /tmp/k2"
-diff /tmp/k1 test.sh && echo None
-
-./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/i -o /tmp/j || exit
-
-echo "difference between howdy.txt and /tmp/j"
-diff /tmp/j ./test-pbp/howdy.txt && echo None
-rm ./test-pbp/sk/.alice/bob ./test-pbp/sk/.bob/alice /tmp/[abcdefghijk]
+rm ./test-pbp/sk/.alice/bob ./test-pbp/sk/.bob/alice /tmp/[24]bob* /tmp/[24]alice*
+./pbp.py -e -S alice -r bob -b ./test-pbp -i ./test-pbp/howdy.txt -o /tmp/2bob || exit
+./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/2bob || exit
+./pbp.py -e -S bob -r alice -b ./test-pbp/ -i ./test-pbp/howdy.txt -o /tmp/2alice || exit
+./pbp.py -E -S alice -r bob -b ./test-pbp/ -i /tmp/2alice || exit
+./pbp.py -e -S alice -r bob -b ./test-pbp -i ./test-pbp/howdy.txt -o /tmp/2bob || exit
+./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/2bob || exit
+./pbp.py -e -S bob -r alice -b ./test-pbp/ -i ./test-pbp/howdy.txt -o /tmp/2alice || exit
+./pbp.py -E -S alice -r bob -b ./test-pbp/ -i /tmp/2alice -o /tmp/4alice || exit
+# test some repeated msgs
+./pbp.py -e -S alice -r bob -b ./test-pbp -i ./test-pbp/howdy.txt -o /tmp/2bob || exit
+./pbp.py -e -S alice -r bob -b ./test-pbp -i ./test-pbp/howdy.txt -o /tmp/2bob-2 || exit
+./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/2bob || exit
+./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/2bob-2 || exit
+./pbp.py -e -S bob -r alice -b ./test-pbp/ -i ./test-pbp/howdy.txt -o /tmp/2alice || exit
+./pbp.py -E -S alice -r bob -b ./test-pbp/ -i /tmp/2alice -o /tmp/4alice || exit
