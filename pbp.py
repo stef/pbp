@@ -428,7 +428,7 @@ def fwd_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
             fd.write(cipher)
     else:
         # encrypt using old fwd key
-        type, nonce, cipher = encrypt(mynext+msg, k=myprev)
+        type, nonce, cipher = encrypt(mynext+msg, k=peer)
         with open(output_filename, 'w') as fd:
             fd.write(nonce)
             fd.write(cipher)
@@ -454,8 +454,11 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
             sys.exit(1)
 
         peer = res[1][:nacl.crypto_secretbox_KEYBYTES]
-        with open(output_filename, 'w') as fd:
-            fd.write(res[1][nacl.crypto_secretbox_KEYBYTES:])
+        if not outfile:
+            print res[1][nacl.crypto_secretbox_KEYBYTES:]
+        else:
+            with open(output_filename, 'w') as fd:
+                fd.write(res[1][nacl.crypto_secretbox_KEYBYTES:])
     else:
         newkey=False
         with open(infile,'r') as fd:
@@ -476,8 +479,11 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
             while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
                 mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
         peer = res[:nacl.crypto_secretbox_KEYBYTES]
-        with open(output_filename, 'w') as fd:
-            fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
+        if not outfile:
+            print res[1][nacl.crypto_secretbox_KEYBYTES:]
+        else:
+            with open(output_filename, 'w') as fd:
+                fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
     save_fwd(''.join((mynext, myprev, peer)), self, recipient[0], basedir)
 
 def main():
@@ -621,7 +627,7 @@ def main():
             print >>sys.stderr, "Error: need to specify your own key using " \
                                 "the --self param"
             sys.exit(1)
-        fwd_encrypt_handler(infile=opts.infile,
+        fwd_encrypt_handler(opts.infile,
                         outfile=opts.outfile,
                         recipient=opts.recipient,
                         self=opts.self,
@@ -646,7 +652,7 @@ def main():
             print >>sys.stderr, "Error: need to specify your own key using " \
                                 "the --self param"
             sys.exit(1)
-        fwd_decrypt_handler(infile=opts.infile,
+        fwd_decrypt_handler(opts.infile,
                             outfile=opts.outfile,
                             recipient=opts.recipient,
                             self=opts.self,
