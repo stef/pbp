@@ -480,7 +480,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
                 mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
         peer = res[:nacl.crypto_secretbox_KEYBYTES]
         if not outfile:
-            print res[1][nacl.crypto_secretbox_KEYBYTES:]
+            print res[nacl.crypto_secretbox_KEYBYTES:]
         else:
             with open(output_filename, 'w') as fd:
                 fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
