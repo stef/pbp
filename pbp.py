@@ -5,7 +5,6 @@ from utils import split_by_n, b85encode
 
 # TODO make processing buffered!
 # TODO add output armoring
-# TODO encrypt fwd key files
 
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
@@ -380,43 +379,47 @@ def keycheck_handler(name=None, basedir=None):
         i+=1
     print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
 
-def save_fwd(fname, data, self):
+def save_fwd(data, self, recipient, basedir):
+    fname="%s/sk/.%s/%s" % (basedir, self.name, recipient)
     nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
     with open(fname,'w') as fd:
         fd.write(nonce)
         fd.write(nacl.crypto_box(data, nonce, self.cp, self.cs))
 
-def load_fwd(fname, self):
-    with open(fname,'r') as fd:
+def load_fwd(self, recipient, basedir):
+    mynext = myprev = peer = ('\0' * nacl.crypto_secretbox_KEYBYTES)
+    keyfdir="%s/sk/.%s" % (basedir, self.name)
+    if not os.path.exists(keyfdir):
+        os.mkdir(keyfdir)
+        return (mynext, myprev, peer)
+    keyfname='%s/%s' % (keyfdir, recipient)
+    if not os.path.exists(keyfname):
+        return (mynext, myprev, peer)
+    with open(keyfname,'r') as fd:
         nonce = fd.read(nacl.crypto_box_NONCEBYTES)
         plain =  nacl.crypto_box_open(fd.read(), nonce, self.cp, self.cs)
     return (plain[:nacl.crypto_secretbox_KEYBYTES],
             plain[nacl.crypto_secretbox_KEYBYTES:nacl.crypto_secretbox_KEYBYTES*2],
-            plain[nacl.crypto_secretbox_KEYBYTES*2:nacl.crypto_secretbox_KEYBYTES*3],
-            plain[nacl.crypto_secretbox_KEYBYTES*3:nacl.crypto_secretbox_KEYBYTES*4])
+            plain[nacl.crypto_secretbox_KEYBYTES*2:nacl.crypto_secretbox_KEYBYTES*3])
 
 def fwd_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
-    mynext = myprev = onext = oprev = ('\0' * nacl.crypto_secretbox_KEYBYTES)
-    keyfdir="%s/sk/.%s" % (basedir, self)
     self=Identity(self, basedir=basedir)
-    if not os.path.exists(keyfdir):
-        os.mkdir(keyfdir)
-    keyfname='%s/%s' % (keyfdir, recipient[0])
-    if os.path.exists(keyfname):
-        mynext, myprev, onext, oprev = load_fwd(keyfname, self)
+    mynext, myprev, peer = load_fwd(self,recipient[0], basedir)
+    oldnext = mynext
     while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-    save_fwd(keyfname, ''.join((mynext, myprev, onext, oprev)), self)
+    if oldnext != mynext:
+        save_fwd(''.join((mynext, myprev, peer)), self, recipient[0], basedir)
 
     with open(infile,'r') as fd:
         msg=fd.read()
     output_filename = outfile if outfile else infile + '.pbp'
 
-    if myprev == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+    if peer == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         # encrypt using public key
         type, nonce, r, cipher = encrypt(mynext+msg,
                                          recipients=[Identity(recipient[0], basedir=basedir)],
-                                          self=self)
+                                         self=self)
         with open(output_filename, 'w') as fd:
             fd.write(nonce)
             fd.write(r[0][0])
@@ -432,15 +435,10 @@ def fwd_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
 
 def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
     output_filename = outfile if outfile else infile + '.pbp'
-    mynext = myprev = onext = oprev = ('\0' * nacl.crypto_secretbox_KEYBYTES)
-    keyfdir="%s/sk/.%s" % (basedir, self)
     self=Identity(self, basedir=basedir)
-    if not os.path.exists(keyfdir):
-        os.mkdir(keyfdir)
-    keyfname='%s/%s' % (keyfdir, recipient[0])
-    if os.path.exists(keyfname):
-        mynext, myprev, onext, oprev = load_fwd(keyfname, self)
-    if onext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+    mynext, myprev, peer = load_fwd(self,recipient[0], basedir)
+
+    if mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
         with open(infile,'r') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             rnonce=fd.read(nacl.crypto_box_NONCEBYTES)
@@ -454,30 +452,33 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
         if not res:
             print >>sys.stderr, "could not decrypt with public key"
             sys.exit(1)
-        myprev = mynext
-        mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-        while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
-            mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-        onext = res[1][:nacl.crypto_secretbox_KEYBYTES]
-        save_fwd(keyfname, ''.join((mynext, myprev, onext, oprev)), self)
+
+        peer = res[1][:nacl.crypto_secretbox_KEYBYTES]
         with open(output_filename, 'w') as fd:
             fd.write(res[1][nacl.crypto_secretbox_KEYBYTES:])
     else:
+        newkey=False
         with open(infile,'r') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            res = decrypt(('c', nonce, fd.read()), k=onext )
+            msg = fd.read()
+            try:
+                res = decrypt(('c', nonce, msg), k=mynext )
+                newkey = True
+            except ValueError:
+                res = decrypt(('c', nonce, msg), k=myprev )
             if not res:
                 print >>sys.stderr, "could not decrypt with fwd key"
                 sys.exit(1)
 
-        myprev = mynext
-        mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-        while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+        if newkey:
+            myprev = mynext
             mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-        onext = res[:nacl.crypto_secretbox_KEYBYTES]
-        save_fwd(keyfname, ''.join((mynext, myprev, onext, oprev)), self)
+            while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+                mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+        peer = res[:nacl.crypto_secretbox_KEYBYTES]
         with open(output_filename, 'w') as fd:
             fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
+    save_fwd(''.join((mynext, myprev, peer)), self, recipient[0], basedir)
 
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
@@ -611,6 +612,10 @@ def main():
             print >>sys.stderr, "Error: need to specify a recipient to " \
                                 "operate on using the --recipient param"
             sys.exit(1)
+        if len(opts.recipient)>1:
+            print >>sys.stderr, "Error: you can only PFS encrypt to one " \
+                                "recipient."
+            sys.exit(1)
         if not opts.self:
             # TODO could try to find out this automatically if non-ambiguous
             print >>sys.stderr, "Error: need to specify your own key using " \
@@ -631,6 +636,10 @@ def main():
         if not opts.recipient:
             print >>sys.stderr, "Error: need to specify a recipient to " \
                                 "operate on using the --recipient param"
+            sys.exit(1)
+        if len(opts.recipient)>1:
+            print >>sys.stderr, "Error: you can only PFS decrypt from one " \
+                                "recipient."
             sys.exit(1)
         if not opts.self:
             # TODO could try to find out this automatically if non-ambiguous
