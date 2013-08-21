@@ -259,7 +259,7 @@ def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=Non
                 raise ValueError
             fd.write(struct.pack("B", ASYM_CIPHER))
             fd.write(nonce)
-            fd.write(struct.pack("L", len(r)))
+            fd.write(struct.pack(">L", len(r)))
             for rnonce, ct in r:
                 fd.write(rnonce)
                 fd.write(struct.pack("B", len(ct)))
@@ -290,7 +290,7 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
                 print >>sys.stderr, "Error: need to specify your own key using the --self param"
                 raise ValueError
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            size = struct.unpack('L',fd.read(4))[0]
+            size = struct.unpack('>L',fd.read(4))[0]
             r = []
             for _ in xrange(size):
                 rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
