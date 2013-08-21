@@ -244,41 +244,39 @@ def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=Non
     with open(infile,'r') as fd:
         msg=fd.read()
     output_filename = outfile if outfile else infile + '.pbp'
-    if recipient and self:
-        # let's do public key encryption
-        type, nonce, r, cipher = encrypt(msg,
-                                         recipients=[Identity(x, basedir=basedir)
-                                                     for x
-                                                     in recipient],
-                                         self=Identity(self, basedir=basedir))
-        if type!='a':
-            raise ValueError
-        with open(output_filename, 'w') as fd:
-            fd.write(struct.pack("B",5))
+    with file(output_filename, 'w') as fd:
+        if recipient and self:
+            # let's do public key encryption
+            type, nonce, r, cipher = encrypt(msg,
+                                             recipients=[Identity(x, basedir=basedir)
+                                                         for x
+                                                         in recipient],
+                                             self=Identity(self, basedir=basedir))
+            if type != 'a':
+                raise ValueError
+            fd.write(struct.pack("B", 5))
             fd.write(nonce)
-            fd.write(struct.pack("L",len(r)))
+            fd.write(struct.pack("L", len(r)))
             for rnonce, ct in r:
                 fd.write(rnonce)
-                fd.write(struct.pack("B",len(ct)))
+                fd.write(struct.pack("B", len(ct)))
                 fd.write(ct)
             fd.write(cipher)
-    else:
-        # let's do symmetric crypto
-        type, nonce, cipher = encrypt(msg)
-        # until we pass a param to encrypt above, it will always be block cipher
-        if type=='c':
-            with open(output_filename, 'w') as fd:
-                fd.write(struct.pack("B",23))
-                fd.write(nonce)
-                fd.write(cipher)
-        elif type=='s':
-            # use the stream cipher
-            with open(output_filename ,'w') as fd:
-                fd.write(struct.pack("B",42))
-                fd.write(nonce)
-                fd.write(cipher)
         else:
-            raise ValueError
+            # let's do symmetric crypto
+            type, nonce, cipher = encrypt(msg)
+            # until we pass a param to encrypt above, it will always be block cipher
+            if type == 'c':
+                fd.write(struct.pack("B", 23))
+                fd.write(nonce)
+                fd.write(cipher)
+            elif type == 's':
+                # use the stream cipher
+                fd.write(struct.pack("B", 42))
+                fd.write(nonce)
+                fd.write(cipher)
+            else:
+                raise ValueError
 
 def decrypt_handler(infile, outfile=None, self=None, basedir=None):
     with open(infile,'r') as fd:
