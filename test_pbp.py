@@ -84,8 +84,9 @@ class TestPBP(unittest.TestCase):
         self_key = self.gen_key()
         rcpt_key = self.gen_key()
         encrypted = pbp.encrypt(MESSAGE, recipients=[rcpt_key], self=self_key)
-        decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path, self=self_key)
-        self.assertEquals(decrypted[1], MESSAGE)
+        for key in (rcpt_key, self_key):
+            decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path, self=key)
+            self.assertEquals(decrypted[1], MESSAGE)
 
     def test_encrypt_recipient_no_key(self):
         self_key = self.gen_key()
