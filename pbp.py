@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
+from itertools import imap
 from utils import split_by_n, b85encode
 
 # TODO make processing buffered!
@@ -134,9 +135,9 @@ def getpkeys(basedir=defaultbase):
     pk_dir = get_pk_dir(basedir)
     if not os.path.exists(pk_dir):
         return
-    for k in os.listdir(pk_dir):
-        if k.endswith('.pk'):
-            yield Identity(k[:-3], publicOnly=True, basedir=basedir)
+    for root, ext in imap(os.path.splitext, os.listdir(pk_dir)):
+        if ext == '.pk':
+            yield Identity(root, publicOnly=True, basedir=basedir)
 
 def getskeys(basedir=defaultbase):
     basedir=os.path.expandvars(os.path.expanduser(basedir))
@@ -144,10 +145,10 @@ def getskeys(basedir=defaultbase):
     sk_dir = get_sk_dir(basedir)
     if not os.path.exists(sk_dir):
         return
-    for k in os.listdir(sk_dir):
-        if k[-3:] in ['.mk','.sk'] and k[:-3] not in seen:
-            seen.add(k[:-3])
-            yield Identity(k[:-3], basedir=basedir)
+    for root, ext in imap(os.path.splitext, os.listdir(sk_dir)):
+        if ext in ('.mk', '.sk') and root not in seen:
+            seen.add(root)
+            yield Identity(root, basedir=basedir)
 
 def get_sk_filename(basedir, name, ext='sk'):
     return os.path.join(get_sk_dir(basedir), name + '.' + ext)
