@@ -511,8 +511,7 @@ def main():
     opts.basedir=os.path.expandvars( os.path.expanduser(opts.basedir))
     # Generate key
     if opts.action=='g':
-        if not opts.name:
-            die("Error: need to specify a Name for the key using the -n param")
+        ensure_name_specified(opts)
         Identity(opts.name, create=True, basedir=opts.basedir)
 
     # list public keys
@@ -529,12 +528,10 @@ def main():
 
     # encrypt
     elif opts.action=='c':
-        if not opts.infile:
-            die("Error: need to specify a file to operate on using the --in param")
-        if opts.recipient and not opts.self:
-            die("Error: need to specify your own key using the --self param")
-        elif not opts.recipient and opts.self:
-            die("Error: need to specify the recipient key using the --recipient param")
+        ensure_infile_specified(opts)
+        if opts.recipient or opts.self:
+            ensure_self_specified(opts)
+            ensure_recipient_specified(opts)
         encrypt_handler(infile=opts.infile,
                         outfile=opts.outfile,
                         recipient=opts.recipient,
@@ -543,8 +540,7 @@ def main():
 
     # decrypt
     elif opts.action=='d':
-        if not opts.infile:
-            die("Error: need to specify a file to operate on using the --in param")
+        ensure_infile_specified(opts)
         decrypt_handler(infile=opts.infile,
                         outfile=opts.outfile,
                         self=opts.self,
@@ -552,10 +548,8 @@ def main():
 
     # sign
     elif opts.action=='s':
-        if not opts.infile:
-            die("Error: need to specify a file to operate on using the --in param")
-        if not opts.self:
-            die("Error: need to specify your own key using the --self param")
+        ensure_infile_specified(opts)
+        ensure_self_specified(opts)
         sign_handler(infile=opts.infile,
                      outfile=opts.outfile,
                      self=opts.self,
@@ -563,18 +557,15 @@ def main():
 
     # verify
     elif opts.action=='v':
-        if not opts.infile:
-            die("Error: need to specify a file to operate on using the --in param")
+        ensure_infile_specified(opts)
         verify_handler(infile=opts.infile,
                      outfile=opts.outfile,
                      basedir=opts.basedir)
 
     # key sign
     elif opts.action=='m':
-        if not opts.name:
-            die("Error: need to specify a key to operate on using the --name param")
-        if not opts.self:
-            die("Error: need to specify your own key using the --self param")
+        ensure_name_specified(opts)
+        ensure_self_specified(opts)
         keysign_handler(infile=opts.infile,
                         name=opts.name,
                         self=opts.self,
@@ -582,24 +573,17 @@ def main():
 
     # lists signatures owners on public keys
     elif opts.action=='C':
-        if not opts.name:
-            die("Error: need to specify a key to operate on using the --name param")
+        ensure_name_specified(opts)
         keycheck_handler(name=opts.name,
                          basedir=opts.basedir)
 
     # forward encrypt
     elif opts.action=='e':
-        if not opts.infile:
-            die("Error: need to specify a file to "
-                "operate on using the --in param")
-        if not opts.recipient:
-            die("Error: need to specify a recipient to "
-                "operate on using the --recipient param")
-        if len(opts.recipient)>1:
-            die("Error: you can only PFS encrypt to one recipient.")
-        if not opts.self:
-            # TODO could try to find out this automatically if non-ambiguous
-            die("Error: need to specify your own key using the --self param")
+        ensure_infile_specified(opts)
+        ensure_recipient_specified(opts)
+        ensure_only_one_recipient(opts)
+        # TODO could try to find out this automatically if non-ambiguous
+        ensure_self_specified(opts)
         fwd_encrypt_handler(opts.infile,
                         outfile=opts.outfile,
                         recipient=opts.recipient,
@@ -608,22 +592,38 @@ def main():
 
     # forward decrypt
     elif opts.action=='E':
-        if not opts.infile:
-            die("Error: need to specify a file to "
-                "operate on using the --in param")
-        if not opts.recipient:
-            die("Error: need to specify a recipient to "
-                "operate on using the --recipient param")
-        if len(opts.recipient)>1:
-            die("Error: you can only PFS decrypt from one recipient.")
-        if not opts.self:
-            # TODO could try to find out this automatically if non-ambiguous
-            die("Error: need to specify your own key using the --self param")
+        ensure_infile_specified(opts)
+        ensure_recipient_specified(opts)
+        ensure_only_one_recipient(opts)
+        # TODO could try to find out this automatically if non-ambiguous
+        ensure_self_specified(opts)
         fwd_decrypt_handler(opts.infile,
                             outfile=opts.outfile,
                             recipient=opts.recipient,
                             self=opts.self,
                             basedir=opts.basedir)
+
+def ensure_self_specified(opts):
+    if not opts.self:
+        die("Error: need to specify your own key using the --self param")
+
+def ensure_name_specified(opts):
+    if not opts.name:
+        die("Error: need to specify a key to operate on using the --name param")
+
+def ensure_infile_specified(opts):
+    if not opts.infile:
+        die("Error: need to specify a file to "
+            "operate on using the --infile param")
+
+def ensure_recipient_specified(opts):
+    if not opts.recipient:
+        die("Error: need to specify a recipient to "
+            "operate on using the --recipient param")
+
+def ensure_only_one_recipient(opts):
+    if len(opts.recipient) > 1:
+        die("Error: you can only PFS decrypt from one recipient.")
 
 def die(msg):
     print >>sys.stderr, msg
