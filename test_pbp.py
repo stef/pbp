@@ -26,16 +26,16 @@ class TestPBP(unittest.TestCase):
         self.assertTrue(repr(i).startswith("name: " + NAME))
 
     def test_getpkeys(self):
-        self.assertEquals(list(pbp.Identity.getpkeys(basedir=self.pbp_path)), [])
+        self.assertEquals(list(pbp.getpkeys(basedir=self.pbp_path)), [])
         i = self.gen_key()
-        pkeys = list(pbp.Identity.getpkeys(basedir=self.pbp_path))
+        pkeys = list(pbp.getpkeys(basedir=self.pbp_path))
         self.assertEquals(len(pkeys), 1)
         # TODO add public key and query again
 
     def test_getskeys(self):
-        self.assertEquals(list(pbp.Identity.getskeys(basedir=self.pbp_path)), [])
+        self.assertEquals(list(pbp.getskeys(basedir=self.pbp_path)), [])
         i = self.gen_key()
-        skeys = list(pbp.Identity.getskeys(basedir=self.pbp_path))
+        skeys = list(pbp.getskeys(basedir=self.pbp_path))
         self.assertEquals(len(skeys), 1)
         # TODO why doesn't it match: self.assertEquals(skeys, [i])
 

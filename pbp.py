@@ -127,27 +127,25 @@ class Identity(object):
             fd.write(nonce)
             fd.write(nacl.crypto_secretbox(key, nonce, k))
 
-    @staticmethod
-    def getpkeys(basedir=defaultbase):
-        basedir=os.path.expandvars(os.path.expanduser(basedir))
-        pk_dir = get_pk_dir(basedir)
-        if not os.path.exists(pk_dir):
-            return
-        for k in os.listdir(pk_dir):
-            if k.endswith('.pk'):
-                yield Identity(k[:-3], publicOnly=True, basedir=basedir)
+def getpkeys(basedir=defaultbase):
+    basedir=os.path.expandvars(os.path.expanduser(basedir))
+    pk_dir = get_pk_dir(basedir)
+    if not os.path.exists(pk_dir):
+        return
+    for k in os.listdir(pk_dir):
+        if k.endswith('.pk'):
+            yield Identity(k[:-3], publicOnly=True, basedir=basedir)
 
-    @staticmethod
-    def getskeys(basedir=defaultbase):
-        basedir=os.path.expandvars(os.path.expanduser(basedir))
-        seen = set()
-        sk_dir = get_sk_dir(basedir)
-        if not os.path.exists(sk_dir):
-            return
-        for k in os.listdir(sk_dir):
-            if k[-3:] in ['.mk','.sk'] and k[:-3] not in seen:
-                seen.add(k[:-3])
-                yield Identity(k[:-3], basedir=basedir)
+def getskeys(basedir=defaultbase):
+    basedir=os.path.expandvars(os.path.expanduser(basedir))
+    seen = set()
+    sk_dir = get_sk_dir(basedir)
+    if not os.path.exists(sk_dir):
+        return
+    for k in os.listdir(sk_dir):
+        if k[-3:] in ['.mk','.sk'] and k[:-3] not in seen:
+            seen.add(k[:-3])
+            yield Identity(k[:-3], basedir=basedir)
 
 def get_sk_filename(basedir, name, ext='sk'):
     return os.path.join(get_sk_dir(basedir), name + '.' + ext)
@@ -219,7 +217,7 @@ def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
     source = None
     mk = None
     for nonce, ck in pkt[2]:
-        for keys in Identity.getpkeys(basedir=basedir):
+        for keys in getpkeys(basedir=basedir):
             try:
                 mk = nacl.crypto_box_open(ck, nonce, keys.cp, sk)
             except ValueError:
@@ -236,7 +234,7 @@ def sign(msg, self, master=False):
     return nacl.crypto_sign(msg, self.ss)
 
 def verify(msg, basedir=defaultbase, master=False):
-    for keys in Identity.getpkeys(basedir=basedir):
+    for keys in getpkeys(basedir=basedir):
         if not master:
             try:
                 return keys.name, nacl.crypto_sign_open(msg, keys.sp)
@@ -523,13 +521,13 @@ def main():
 
     # list public keys
     elif opts.action=='l':
-        for i in Identity.getpkeys(opts.basedir):
+        for i in getpkeys(opts.basedir):
             print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
                    else 'invalid'), i.keyid(), i.name
 
     # list secret keys
     elif opts.action=='L':
-        for i in Identity.getskeys(opts.basedir):
+        for i in getskeys(opts.basedir):
             print ('valid' if i.valid > datetime.utcdatetime.now() > i.created
                    else 'invalid'), i.keyid(), i.name
 
