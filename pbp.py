@@ -78,7 +78,7 @@ class Identity(object):
 
     def loadkey(self, type):
         if type in ['mp','cp','sp', 'created', 'valid']:
-            with open("%s/pk/%s.pk" % (self.basedir, self.name), 'r') as fd:
+            with open(get_pk_filename(self.basedir, self.name), 'r') as fd:
                 tmp=fd.read()
             mk=tmp[nacl.crypto_sign_PUBLICKEYBYTES:nacl.crypto_sign_PUBLICKEYBYTES*2]
             tmp = nacl.crypto_sign_open(tmp, mk)
@@ -113,7 +113,7 @@ class Identity(object):
                     self.ms=tmp
 
     def savepublickeys(self):
-        with open("%s/pk/%s.pk" % (self.basedir, self.name),'w') as fd:
+        with open(get_pk_filename(self.basedir, self.name), 'w') as fd:
             dates='{:<32}{:<32}'.format(self.created.isoformat(), self.valid.isoformat())
             fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates+self.name, self.ms))
 
@@ -151,6 +151,9 @@ class Identity(object):
 
 def get_sk_filename(basedir, name, ext='sk'):
     return os.path.join(get_sk_dir(basedir), name + '.' + ext)
+
+def get_pk_filename(basedir, name):
+    return os.path.join(get_pk_dir(basedir), name + '.pk')
 
 def get_sk_dir(basedir):
     return os.path.join(basedir, 'sk')
@@ -354,7 +357,7 @@ def verify_handler(infile, outfile=None, basedir=None):
         print >>sys.stderr, msg
 
 def keysign_handler(infile, name=None, self=None, basedir=None):
-    fname="%s/pk/%s.pk" % (basedir, name)
+    fname = get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         data = fd.read()
     with open(fname+'.sig','a') as fd:
@@ -364,7 +367,7 @@ def keysign_handler(infile, name=None, self=None, basedir=None):
         fd.write(sig[:32]+sig[-32:])
 
 def keycheck_handler(name=None, basedir=None):
-    fname="%s/pk/%s.pk" % (basedir, name)
+    fname = get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         pk = fd.read()
     sigs=[]
