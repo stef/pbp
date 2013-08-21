@@ -238,14 +238,10 @@ def sign(msg, self, master=False):
 
 def verify(msg, basedir=defaultbase, master=False):
     for keys in getpkeys(basedir=basedir):
-        if not master:
-            try:
-                return keys.name, nacl.crypto_sign_open(msg, keys.sp)
-            except ValueError: pass
-        else:
-            try:
-                return keys.name, nacl.crypto_sign_open(msg, keys.mp)
-            except ValueError: pass
+        try:
+            verifying_key = keys.mp if master else keys.sp
+            return keys.name, nacl.crypto_sign_open(msg, verifying_key)
+        except ValueError: pass
 
 def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
     with open(infile,'r') as fd:
