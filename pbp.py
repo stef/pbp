@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 import nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
+from itertools import imap
 from utils import split_by_n, b85encode
 
 # TODO make processing buffered!
 # TODO add output armoring
+
+ASYM_CIPHER = 5
+BLOCK_CIPHER = 23
+STREAM_CIPHER = 42
 
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
@@ -21,11 +26,8 @@ class Identity(object):
 
         if create:
             if not os.path.exists(self.basedir):
-                os.mkdir(self.basedir)
-                os.chmod(self.basedir,
-                         stat.S_IREAD|stat.S_IWRITE|stat.S_IEXEC)
-                os.mkdir(get_pk_dir(self.basedir))
-                os.mkdir(get_sk_dir(self.basedir))
+                for d in (get_pk_dir(self.basedir), get_sk_dir(self.basedir)):
+                    os.makedirs(d, stat.S_IREAD|stat.S_IWRITE|stat.S_IEXEC)
             self.create()
 
     def __getattr__(self,name):
@@ -78,7 +80,7 @@ class Identity(object):
 
     def loadkey(self, type):
         if type in ['mp','cp','sp', 'created', 'valid']:
-            with open("%s/pk/%s.pk" % (self.basedir, self.name), 'r') as fd:
+            with open(get_pk_filename(self.basedir, self.name), 'r') as fd:
                 tmp=fd.read()
             mk=tmp[nacl.crypto_sign_PUBLICKEYBYTES:nacl.crypto_sign_PUBLICKEYBYTES*2]
             tmp = nacl.crypto_sign_open(tmp, mk)
@@ -88,37 +90,35 @@ class Identity(object):
             i+=nacl.crypto_sign_PUBLICKEYBYTES
             if type == 'cp': self.cp=tmp[i:i+nacl.crypto_box_PUBLICKEYBYTES]
             i+=nacl.crypto_box_PUBLICKEYBYTES
-            self.created=datetime.datetime.strptime(tmp[i:i+32].strip(),"%Y-%m-%dT%H:%M:%S.%f")
-            self.valid=datetime.datetime.strptime(tmp[i+32:i+64].strip(),"%Y-%m-%dT%H:%M:%S.%f")
+            self.created = parse_isodatetime(tmp[i:i + 32])
+            self.valid = parse_isodatetime(tmp[i + 32:i + 64])
 
         elif type in ['cs', 'ss']:
-            tmp="%s/sk/%s.sk" % (self.basedir, self.name)
+            tmp = get_sk_filename(self.basedir, self.name)
             if os.path.exists(tmp):
-                with open(tmp, 'r') as fd:
-                    nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-                    k = scrypt.hash(getpass.getpass('Passphrase for decrypting subkeys for %s: ' % self.name),
-                                    scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-                    tmp=nacl.crypto_secretbox_open(fd.read(), nonce, k)
-                    if type == 'ss': self.ss=tmp[:nacl.crypto_sign_SECRETKEYBYTES]
-                    if type == 'cs': self.cs=tmp[nacl.crypto_sign_SECRETKEYBYTES:]
+                tmp = self.decrypt_with_user_pw(tmp, 'subkeys')
+                if type == 'ss': self.ss = tmp[:nacl.crypto_sign_SECRETKEYBYTES]
+                if type == 'cs': self.cs = tmp[nacl.crypto_sign_SECRETKEYBYTES:]
 
         elif type == 'ms':
-            tmp="%s/sk/%s.mk" % (self.basedir, self.name)
+            tmp = get_sk_filename(self.basedir, self.name, ext='mk')
             if os.path.exists(tmp):
-                with open(tmp, 'r') as fd:
-                    nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-                    k = scrypt.hash(getpass.getpass('Passphrase for decrypting master key for %s: ' % self.name),
-                                    scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-                    tmp=nacl.crypto_secretbox_open(fd.read(), nonce, k)
-                    self.ms=tmp
+                self.ms = self.decrypt_with_user_pw(tmp, 'master key')
+
+    def decrypt_with_user_pw(self, filename, pw_for):
+        with file(filename) as fd:
+            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+            prompt = 'Passphrase for decrypting {0} for {1}: '.format(pw_for, self.name)
+            k = scrypt.hash(getpass.getpass(prompt), scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+            return nacl.crypto_secretbox_open(fd.read(), nonce, k)
 
     def savepublickeys(self):
-        with open("%s/pk/%s.pk" % (self.basedir, self.name),'w') as fd:
+        with open(get_pk_filename(self.basedir, self.name), 'w') as fd:
             dates='{:<32}{:<32}'.format(self.created.isoformat(), self.valid.isoformat())
             fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates+self.name, self.ms))
 
     def savesecretekey(self, ext, key):
-        fname="%s/sk/%s.%s" % (self.basedir, self.name, ext)
+        fname = get_sk_filename(self.basedir, self.name, ext)
         k = getkey(nacl.crypto_secretbox_KEYBYTES,
                    empty=True,
                    text='Master' if ext == 'mk' else 'Subkey')
@@ -127,27 +127,34 @@ class Identity(object):
             fd.write(nonce)
             fd.write(nacl.crypto_secretbox(key, nonce, k))
 
-    @staticmethod
-    def getpkeys(basedir=defaultbase):
-        basedir=os.path.expandvars(os.path.expanduser(basedir))
-        pk_dir = get_pk_dir(basedir)
-        if not os.path.exists(pk_dir):
-            return
-        for k in os.listdir(pk_dir):
-            if k.endswith('.pk'):
-                yield Identity(k[:-3], publicOnly=True, basedir=basedir)
+def parse_isodatetime(value):
+    return datetime.datetime.strptime(value.strip(), "%Y-%m-%dT%H:%M:%S.%f")
 
-    @staticmethod
-    def getskeys(basedir=defaultbase):
-        basedir=os.path.expandvars(os.path.expanduser(basedir))
-        seen = set()
-        sk_dir = get_sk_dir(basedir)
-        if not os.path.exists(sk_dir):
-            return
-        for k in os.listdir(sk_dir):
-            if k[-3:] in ['.mk','.sk'] and k[:-3] not in seen:
-                seen.add(k[:-3])
-                yield Identity(k[:-3], basedir=basedir)
+def getpkeys(basedir=defaultbase):
+    basedir=os.path.expandvars(os.path.expanduser(basedir))
+    pk_dir = get_pk_dir(basedir)
+    if not os.path.exists(pk_dir):
+        return
+    for root, ext in imap(os.path.splitext, os.listdir(pk_dir)):
+        if ext == '.pk':
+            yield Identity(root, publicOnly=True, basedir=basedir)
+
+def getskeys(basedir=defaultbase):
+    basedir=os.path.expandvars(os.path.expanduser(basedir))
+    seen = set()
+    sk_dir = get_sk_dir(basedir)
+    if not os.path.exists(sk_dir):
+        return
+    for root, ext in imap(os.path.splitext, os.listdir(sk_dir)):
+        if ext in ('.mk', '.sk') and root not in seen:
+            seen.add(root)
+            yield Identity(root, basedir=basedir)
+
+def get_sk_filename(basedir, name, ext='sk'):
+    return os.path.join(get_sk_dir(basedir), name + '.' + ext)
+
+def get_pk_filename(basedir, name):
+    return os.path.join(get_pk_dir(basedir), name + '.pk')
 
 def get_sk_dir(basedir):
     return os.path.join(basedir, 'sk')
@@ -197,23 +204,19 @@ def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
     if pkt[0]=='s':
         # stream
         if not k:
-            if not pwd: pwd = getpass.getpass('Passphrase for decrypting: ')
-            k = scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-
+            k = get_decrypt_key(pwd)
         return nacl.crypto_stream_xor(pkt[2], pkt[1], k)
     if pkt[0]=='c':
         # symmetric
         if not k:
-            if not pwd: pwd = getpass.getpass('Passphrase for decrypting: ')
-            k = scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-
+            k = get_decrypt_key(pwd)
         return nacl.crypto_secretbox_open(pkt[2], pkt[1], k)
 
     sk = self.cs
     source = None
     mk = None
     for nonce, ck in pkt[2]:
-        for keys in Identity.getpkeys(basedir=basedir):
+        for keys in getpkeys(basedir=basedir):
             try:
                 mk = nacl.crypto_box_open(ck, nonce, keys.cp, sk)
             except ValueError:
@@ -224,21 +227,21 @@ def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
             break
     return source, nacl.crypto_secretbox_open(pkt[3], pkt[1], mk)
 
+def get_decrypt_key(pwd):
+    if not pwd:
+        pwd = getpass.getpass('Passphrase for decrypting: ')
+    return scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+
 def sign(msg, self, master=False):
-    if master:
-        return nacl.crypto_sign(msg, self.ms)
-    return nacl.crypto_sign(msg, self.ss)
+    signing_key = self.ms if master else self.ss
+    return nacl.crypto_sign(msg, signing_key)
 
 def verify(msg, basedir=defaultbase, master=False):
-    for keys in Identity.getpkeys(basedir=basedir):
-        if not master:
-            try:
-                return keys.name, nacl.crypto_sign_open(msg, keys.sp)
-            except ValueError: pass
-        else:
-            try:
-                return keys.name, nacl.crypto_sign_open(msg, keys.mp)
-            except ValueError: pass
+    for keys in getpkeys(basedir=basedir):
+        try:
+            verifying_key = keys.mp if master else keys.sp
+            return keys.name, nacl.crypto_sign_open(msg, verifying_key)
+        except ValueError: pass
 
 def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
     with open(infile,'r') as fd:
@@ -254,9 +257,9 @@ def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=Non
                                              self=Identity(self, basedir=basedir))
             if type != 'a':
                 raise ValueError
-            fd.write(struct.pack("B", 5))
+            fd.write(struct.pack("B", ASYM_CIPHER))
             fd.write(nonce)
-            fd.write(struct.pack("L", len(r)))
+            fd.write(struct.pack(">L", len(r)))
             for rnonce, ct in r:
                 fd.write(rnonce)
                 fd.write(struct.pack("B", len(ct)))
@@ -267,12 +270,12 @@ def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=Non
             type, nonce, cipher = encrypt(msg)
             # until we pass a param to encrypt above, it will always be block cipher
             if type == 'c':
-                fd.write(struct.pack("B", 23))
+                fd.write(struct.pack("B", BLOCK_CIPHER))
                 fd.write(nonce)
                 fd.write(cipher)
             elif type == 's':
                 # use the stream cipher
-                fd.write(struct.pack("B", 42))
+                fd.write(struct.pack("B", STREAM_CIPHER))
                 fd.write(nonce)
                 fd.write(cipher)
             else:
@@ -282,17 +285,16 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
     with open(infile,'r') as fd:
         type=struct.unpack('B',fd.read(1))[0]
         # asym
-        if type == 5:
+        if type == ASYM_CIPHER:
             if not self:
                 print >>sys.stderr, "Error: need to specify your own key using the --self param"
                 raise ValueError
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            size = struct.unpack('L',fd.read(4))[0]
-            r=[]
-            while size>0:
-                size-=1
-                rnonce=fd.read(nacl.crypto_box_NONCEBYTES)
-                ct = fd.read(struct.unpack('B',fd.read(1))[0])
+            size = struct.unpack('>L',fd.read(4))[0]
+            r = []
+            for _ in xrange(size):
+                rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
+                ct = read_prefixed_byte_length(fd)
                 r.append((rnonce,ct))
             sender, msg = decrypt(('a',
                                    nonce,
@@ -312,12 +314,12 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
             return
 
         # sym
-        elif type == 23:
+        elif type == BLOCK_CIPHER:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             msg = decrypt(('c', nonce, fd.read()))
 
         # stream
-        elif type == 42:
+        elif type == STREAM_CIPHER:
             nonce = fd.read(nacl.crypto_stream_NONCEBYTES)
             msg = decrypt(('s', nonce, fd.read()))
 
@@ -351,7 +353,7 @@ def verify_handler(infile, outfile=None, basedir=None):
         print >>sys.stderr, msg
 
 def keysign_handler(infile, name=None, self=None, basedir=None):
-    fname="%s/pk/%s.pk" % (basedir, name)
+    fname = get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         data = fd.read()
     with open(fname+'.sig','a') as fd:
@@ -361,7 +363,7 @@ def keysign_handler(infile, name=None, self=None, basedir=None):
         fd.write(sig[:32]+sig[-32:])
 
 def keycheck_handler(name=None, basedir=None):
-    fname="%s/pk/%s.pk" % (basedir, name)
+    fname = get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         pk = fd.read()
     sigs=[]
@@ -439,7 +441,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
         with open(infile,'r') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             rnonce=fd.read(nacl.crypto_box_NONCEBYTES)
-            ct = fd.read(struct.unpack('B',fd.read(1))[0])
+            ct = read_prefixed_byte_length(fd)
             res = decrypt(('a',
                            nonce,
                            [(rnonce,ct)],
@@ -447,8 +449,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
                           basedir=basedir,
                           self=self)
         if not res:
-            print >>sys.stderr, "could not decrypt with public key"
-            sys.exit(1)
+            die("could not decrypt with public key")
 
         peer = res[1][:nacl.crypto_secretbox_KEYBYTES]
         if not outfile:
@@ -467,8 +468,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
             except ValueError:
                 res = decrypt(('c', nonce, msg), k=myprev )
             if not res:
-                print >>sys.stderr, "could not decrypt with fwd key"
-                sys.exit(1)
+                die("could not decrypt with fwd key")
 
         if newkey:
             myprev = mynext
@@ -482,6 +482,9 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
             with open(outfile, 'w') as fd:
                 fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
     save_fwd(''.join((mynext, myprev, peer)), self, recipient[0], basedir)
+
+def read_prefixed_byte_length(fd):
+    return fd.read(struct.unpack('B', fd.read(1))[0])
 
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
@@ -510,35 +513,27 @@ def main():
     opts.basedir=os.path.expandvars( os.path.expanduser(opts.basedir))
     # Generate key
     if opts.action=='g':
-        if not opts.name:
-            print >>sys.stderr, "Error: need to specify a Name for the key using the -n param"
-            sys.exit(1)
+        ensure_name_specified(opts)
         Identity(opts.name, create=True, basedir=opts.basedir)
 
     # list public keys
     elif opts.action=='l':
-        for i in Identity.getpkeys(opts.basedir):
+        for i in getpkeys(opts.basedir):
             print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
                    else 'invalid'), i.keyid(), i.name
 
     # list secret keys
     elif opts.action=='L':
-        for i in Identity.getskeys(opts.basedir):
-            print ('valid' if i.valid > datetime.utcdatetime.now() > i.created
+        for i in getskeys(opts.basedir):
+            print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
                    else 'invalid'), i.keyid(), i.name
 
     # encrypt
     elif opts.action=='c':
-        if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to " \
-                                "operate on using the --in param"
-            sys.exit(1)
-        if opts.recipient and not opts.self:
-            print >>sys.stderr, "Error: need to specify your own key using the --self param"
-            sys.exit(1)
-        elif not opts.recipient and opts.self:
-            print >>sys.stderr, "Error: need to specify the recipient key using the --recipient param"
-            sys.exit(1)
+        ensure_infile_specified(opts)
+        if opts.recipient or opts.self:
+            ensure_self_specified(opts)
+            ensure_recipient_specified(opts)
         encrypt_handler(infile=opts.infile,
                         outfile=opts.outfile,
                         recipient=opts.recipient,
@@ -547,10 +542,7 @@ def main():
 
     # decrypt
     elif opts.action=='d':
-        if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to operate " \
-                                "on using the --in param"
-            sys.exit(1)
+        ensure_infile_specified(opts)
         decrypt_handler(infile=opts.infile,
                         outfile=opts.outfile,
                         self=opts.self,
@@ -558,14 +550,8 @@ def main():
 
     # sign
     elif opts.action=='s':
-        if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to operate " \
-                                "on using the --in param"
-            sys.exit(1)
-        if not opts.self:
-            print >>sys.stderr, "Error: need to specify your own key using " \
-                                "the --self param"
-            sys.exit(1)
+        ensure_infile_specified(opts)
+        ensure_self_specified(opts)
         sign_handler(infile=opts.infile,
                      outfile=opts.outfile,
                      self=opts.self,
@@ -573,24 +559,15 @@ def main():
 
     # verify
     elif opts.action=='v':
-        if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to operate " \
-                                "on using the --in param"
-            sys.exit(1)
+        ensure_infile_specified(opts)
         verify_handler(infile=opts.infile,
                      outfile=opts.outfile,
                      basedir=opts.basedir)
 
     # key sign
     elif opts.action=='m':
-        if not opts.name:
-            print >>sys.stderr, "Error: need to specify a key to operate " \
-                                "on using the --name param"
-            sys.exit(1)
-        if not opts.self:
-            print >>sys.stderr, "Error: need to specify your own key using " \
-                                "the --self param"
-            sys.exit(1)
+        ensure_name_specified(opts)
+        ensure_self_specified(opts)
         keysign_handler(infile=opts.infile,
                         name=opts.name,
                         self=opts.self,
@@ -598,32 +575,17 @@ def main():
 
     # lists signatures owners on public keys
     elif opts.action=='C':
-        if not opts.name:
-            print >>sys.stderr, "Error: need to specify a key to operate " \
-                                "on using the --name param"
-            sys.exit(1)
+        ensure_name_specified(opts)
         keycheck_handler(name=opts.name,
                          basedir=opts.basedir)
 
     # forward encrypt
     elif opts.action=='e':
-        if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to " \
-                                "operate on using the --in param"
-            sys.exit(1)
-        if not opts.recipient:
-            print >>sys.stderr, "Error: need to specify a recipient to " \
-                                "operate on using the --recipient param"
-            sys.exit(1)
-        if len(opts.recipient)>1:
-            print >>sys.stderr, "Error: you can only PFS encrypt to one " \
-                                "recipient."
-            sys.exit(1)
-        if not opts.self:
-            # TODO could try to find out this automatically if non-ambiguous
-            print >>sys.stderr, "Error: need to specify your own key using " \
-                                "the --self param"
-            sys.exit(1)
+        ensure_infile_specified(opts)
+        ensure_recipient_specified(opts)
+        ensure_only_one_recipient(opts)
+        # TODO could try to find out this automatically if non-ambiguous
+        ensure_self_specified(opts)
         fwd_encrypt_handler(opts.infile,
                         outfile=opts.outfile,
                         recipient=opts.recipient,
@@ -632,28 +594,42 @@ def main():
 
     # forward decrypt
     elif opts.action=='E':
-        if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to " \
-                                "operate on using the --in param"
-            sys.exit(1)
-        if not opts.recipient:
-            print >>sys.stderr, "Error: need to specify a recipient to " \
-                                "operate on using the --recipient param"
-            sys.exit(1)
-        if len(opts.recipient)>1:
-            print >>sys.stderr, "Error: you can only PFS decrypt from one " \
-                                "recipient."
-            sys.exit(1)
-        if not opts.self:
-            # TODO could try to find out this automatically if non-ambiguous
-            print >>sys.stderr, "Error: need to specify your own key using " \
-                                "the --self param"
-            sys.exit(1)
+        ensure_infile_specified(opts)
+        ensure_recipient_specified(opts)
+        ensure_only_one_recipient(opts)
+        # TODO could try to find out this automatically if non-ambiguous
+        ensure_self_specified(opts)
         fwd_decrypt_handler(opts.infile,
                             outfile=opts.outfile,
                             recipient=opts.recipient,
                             self=opts.self,
                             basedir=opts.basedir)
+
+def ensure_self_specified(opts):
+    if not opts.self:
+        die("Error: need to specify your own key using the --self param")
+
+def ensure_name_specified(opts):
+    if not opts.name:
+        die("Error: need to specify a key to operate on using the --name param")
+
+def ensure_infile_specified(opts):
+    if not opts.infile:
+        die("Error: need to specify a file to "
+            "operate on using the --infile param")
+
+def ensure_recipient_specified(opts):
+    if not opts.recipient:
+        die("Error: need to specify a recipient to "
+            "operate on using the --recipient param")
+
+def ensure_only_one_recipient(opts):
+    if len(opts.recipient) > 1:
+        die("Error: you can only PFS decrypt from one recipient.")
+
+def die(msg):
+    print >>sys.stderr, msg
+    sys.exit(1)
 
 if __name__ == '__main__':
     #__test()

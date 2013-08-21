@@ -8,6 +8,7 @@ import unittest, pbp, os, re
 NAME = "keyname"
 MESSAGE = "Hello, world"
 PASSWORD = "foo"
+OTHER_PW = "bar"
 pbp.getpass.getpass = lambda x: PASSWORD
 
 class TestPBP(unittest.TestCase):
@@ -26,18 +27,38 @@ class TestPBP(unittest.TestCase):
         self.assertTrue(repr(i).startswith("name: " + NAME))
 
     def test_getpkeys(self):
-        self.assertEquals(list(pbp.Identity.getpkeys(basedir=self.pbp_path)), [])
+        self.assertEquals(list(pbp.getpkeys(basedir=self.pbp_path)), [])
         i = self.gen_key()
-        pkeys = list(pbp.Identity.getpkeys(basedir=self.pbp_path))
+        pkeys = list(pbp.getpkeys(basedir=self.pbp_path))
         self.assertEquals(len(pkeys), 1)
         # TODO add public key and query again
 
     def test_getskeys(self):
-        self.assertEquals(list(pbp.Identity.getskeys(basedir=self.pbp_path)), [])
+        self.assertEquals(list(pbp.getskeys(basedir=self.pbp_path)), [])
         i = self.gen_key()
-        skeys = list(pbp.Identity.getskeys(basedir=self.pbp_path))
+        skeys = list(pbp.getskeys(basedir=self.pbp_path))
         self.assertEquals(len(skeys), 1)
         # TODO why doesn't it match: self.assertEquals(skeys, [i])
+
+    def test_encrypt_sym_stream_pwprompt_fail(self):
+        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
+        decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
+        self.assertNotEquals(decrypted, MESSAGE)
+
+    def test_encrypt_sym_pwprompt_fail(self):
+        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
+        with self.assertRaises(ValueError):
+            pbp.decrypt(encrypted, basedir=self.pbp_path)
+
+    def test_encrypt_sym_stream_fail(self):
+        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
+        decrypted = pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
+        self.assertNotEquals(decrypted, MESSAGE)
+
+    def test_encrypt_sym_fail(self):
+        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
+        with self.assertRaises(ValueError):
+            pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
 
     def test_encrypt_sym_stream_pwprompt(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD, stream=True)
@@ -63,8 +84,30 @@ class TestPBP(unittest.TestCase):
         self_key = self.gen_key()
         rcpt_key = self.gen_key()
         encrypted = pbp.encrypt(MESSAGE, recipients=[rcpt_key], self=self_key)
-        decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path, self=self_key)
-        self.assertEquals(decrypted[1], MESSAGE)
+        for key in (rcpt_key, self_key):
+            decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path, self=key)
+            self.assertEquals(decrypted[1], MESSAGE)
+
+    def test_encrypt_recipient_no_key(self):
+        self_key = self.gen_key()
+        rcpt_key = self.gen_key()
+        other_key = self.gen_key()
+        encrypted = pbp.encrypt(MESSAGE, recipients=[rcpt_key], self=self_key)
+        with self.assertRaises(ValueError):
+            pbp.decrypt(encrypted, basedir=self.pbp_path, self=other_key)
+
+    def test_sign_fail(self):
+        self_key = self.gen_key()
+        signed = pbp.sign(MESSAGE, self=self_key)
+        malformed = ''.join(chr(ord(c) ^ 42) for c in signed)
+        self.assertTrue(pbp.verify(malformed, basedir=self.pbp_path) is None)
+
+    def test_sign_no_key(self):
+        self_key = self.gen_key()
+        signed = pbp.sign(MESSAGE, self=self_key)
+        rmtree(self.pbp_path)
+        self.gen_key()
+        self.assertTrue(pbp.verify(signed, basedir=self.pbp_path) is None)
 
     def test_sign(self):
         self_key = self.gen_key()
