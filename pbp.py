@@ -89,8 +89,8 @@ class Identity(object):
             i+=nacl.crypto_sign_PUBLICKEYBYTES
             if type == 'cp': self.cp=tmp[i:i+nacl.crypto_box_PUBLICKEYBYTES]
             i+=nacl.crypto_box_PUBLICKEYBYTES
-            self.created=datetime.datetime.strptime(tmp[i:i+32].strip(),"%Y-%m-%dT%H:%M:%S.%f")
-            self.valid=datetime.datetime.strptime(tmp[i+32:i+64].strip(),"%Y-%m-%dT%H:%M:%S.%f")
+            self.created = parse_isodatetime(tmp[i:i + 32])
+            self.valid = parse_isodatetime(tmp[i + 32:i + 64])
 
         elif type in ['cs', 'ss']:
             tmp = get_sk_filename(self.basedir, self.name)
@@ -125,6 +125,9 @@ class Identity(object):
         with open(fname,'w') as fd:
             fd.write(nonce)
             fd.write(nacl.crypto_secretbox(key, nonce, k))
+
+def parse_isodatetime(value):
+    return datetime.datetime.strptime(value.strip(), "%Y-%m-%dT%H:%M:%S.%f")
 
 def getpkeys(basedir=defaultbase):
     basedir=os.path.expandvars(os.path.expanduser(basedir))
