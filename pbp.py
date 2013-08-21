@@ -294,7 +294,7 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
             r = []
             for _ in xrange(size):
                 rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
-                ct = fd.read(struct.unpack('B', fd.read(1))[0])
+                ct = read_prefixed_byte_length(fd)
                 r.append((rnonce,ct))
             sender, msg = decrypt(('a',
                                    nonce,
@@ -441,7 +441,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
         with open(infile,'r') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             rnonce=fd.read(nacl.crypto_box_NONCEBYTES)
-            ct = fd.read(struct.unpack('B',fd.read(1))[0])
+            ct = read_prefixed_byte_length(fd)
             res = decrypt(('a',
                            nonce,
                            [(rnonce,ct)],
@@ -482,6 +482,9 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
             with open(outfile, 'w') as fd:
                 fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
     save_fwd(''.join((mynext, myprev, peer)), self, recipient[0], basedir)
+
+def read_prefixed_byte_length(fd):
+    return fd.read(struct.unpack('B', fd.read(1))[0])
 
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
