@@ -25,8 +25,7 @@ class Identity(object):
 
         if create:
             if not os.path.exists(self.basedir):
-                os.mkdir(self.basedir)
-                os.chmod(self.basedir,
+                os.mkdir(self.basedir,
                          stat.S_IREAD|stat.S_IWRITE|stat.S_IEXEC)
                 os.mkdir(get_pk_dir(self.basedir))
                 os.mkdir(get_sk_dir(self.basedir))
