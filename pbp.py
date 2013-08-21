@@ -233,9 +233,8 @@ def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
     return source, nacl.crypto_secretbox_open(pkt[3], pkt[1], mk)
 
 def sign(msg, self, master=False):
-    if master:
-        return nacl.crypto_sign(msg, self.ms)
-    return nacl.crypto_sign(msg, self.ss)
+    signing_key = self.ms if master else self.ss
+    return nacl.crypto_sign(msg, signing_key)
 
 def verify(msg, basedir=defaultbase, master=False):
     for keys in getpkeys(basedir=basedir):
