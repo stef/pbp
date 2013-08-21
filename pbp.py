@@ -291,11 +291,10 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
                 raise ValueError
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             size = struct.unpack('L',fd.read(4))[0]
-            r=[]
-            while size>0:
-                size-=1
-                rnonce=fd.read(nacl.crypto_box_NONCEBYTES)
-                ct = fd.read(struct.unpack('B',fd.read(1))[0])
+            r = []
+            for _ in xrange(size):
+                rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
+                ct = fd.read(struct.unpack('B', fd.read(1))[0])
                 r.append((rnonce,ct))
             sender, msg = decrypt(('a',
                                    nonce,
