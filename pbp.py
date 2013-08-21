@@ -204,16 +204,12 @@ def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
     if pkt[0]=='s':
         # stream
         if not k:
-            if not pwd: pwd = getpass.getpass('Passphrase for decrypting: ')
-            k = scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-
+            k = get_decrypt_key(pwd)
         return nacl.crypto_stream_xor(pkt[2], pkt[1], k)
     if pkt[0]=='c':
         # symmetric
         if not k:
-            if not pwd: pwd = getpass.getpass('Passphrase for decrypting: ')
-            k = scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-
+            k = get_decrypt_key(pwd)
         return nacl.crypto_secretbox_open(pkt[2], pkt[1], k)
 
     sk = self.cs
@@ -230,6 +226,11 @@ def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
         if source:
             break
     return source, nacl.crypto_secretbox_open(pkt[3], pkt[1], mk)
+
+def get_decrypt_key(pwd):
+    if not pwd:
+        pwd = getpass.getpass('Passphrase for decrypting: ')
+    return scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
 
 def sign(msg, self, master=False):
     signing_key = self.ms if master else self.ss
