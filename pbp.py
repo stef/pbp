@@ -92,7 +92,7 @@ class Identity(object):
             self.valid=datetime.datetime.strptime(tmp[i+32:i+64].strip(),"%Y-%m-%dT%H:%M:%S.%f")
 
         elif type in ['cs', 'ss']:
-            tmp="%s/sk/%s.sk" % (self.basedir, self.name)
+            tmp = get_sk_filename(self.basedir, self.name)
             if os.path.exists(tmp):
                 with open(tmp, 'r') as fd:
                     nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
@@ -103,7 +103,7 @@ class Identity(object):
                     if type == 'cs': self.cs=tmp[nacl.crypto_sign_SECRETKEYBYTES:]
 
         elif type == 'ms':
-            tmp="%s/sk/%s.mk" % (self.basedir, self.name)
+            tmp = get_sk_filename(self.basedir, self.name, ext='mk')
             if os.path.exists(tmp):
                 with open(tmp, 'r') as fd:
                     nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
@@ -118,7 +118,7 @@ class Identity(object):
             fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates+self.name, self.ms))
 
     def savesecretekey(self, ext, key):
-        fname="%s/sk/%s.%s" % (self.basedir, self.name, ext)
+        fname = get_sk_filename(self.basedir, self.name, ext)
         k = getkey(nacl.crypto_secretbox_KEYBYTES,
                    empty=True,
                    text='Master' if ext == 'mk' else 'Subkey')
@@ -148,6 +148,9 @@ class Identity(object):
             if k[-3:] in ['.mk','.sk'] and k[:-3] not in seen:
                 seen.add(k[:-3])
                 yield Identity(k[:-3], basedir=basedir)
+
+def get_sk_filename(basedir, name, ext='sk'):
+    return os.path.join(get_sk_dir(basedir), name + '.' + ext)
 
 def get_sk_dir(basedir):
     return os.path.join(basedir, 'sk')
