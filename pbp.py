@@ -450,8 +450,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
                           basedir=basedir,
                           self=self)
         if not res:
-            print >>sys.stderr, "could not decrypt with public key"
-            sys.exit(1)
+            die("could not decrypt with public key")
 
         peer = res[1][:nacl.crypto_secretbox_KEYBYTES]
         if not outfile:
@@ -470,8 +469,7 @@ def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir
             except ValueError:
                 res = decrypt(('c', nonce, msg), k=myprev )
             if not res:
-                print >>sys.stderr, "could not decrypt with fwd key"
-                sys.exit(1)
+                die("could not decrypt with fwd key")
 
         if newkey:
             myprev = mynext
@@ -514,8 +512,7 @@ def main():
     # Generate key
     if opts.action=='g':
         if not opts.name:
-            print >>sys.stderr, "Error: need to specify a Name for the key using the -n param"
-            sys.exit(1)
+            die("Error: need to specify a Name for the key using the -n param")
         Identity(opts.name, create=True, basedir=opts.basedir)
 
     # list public keys
@@ -533,15 +530,11 @@ def main():
     # encrypt
     elif opts.action=='c':
         if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to " \
-                                "operate on using the --in param"
-            sys.exit(1)
+            die("Error: need to specify a file to operate on using the --in param")
         if opts.recipient and not opts.self:
-            print >>sys.stderr, "Error: need to specify your own key using the --self param"
-            sys.exit(1)
+            die("Error: need to specify your own key using the --self param")
         elif not opts.recipient and opts.self:
-            print >>sys.stderr, "Error: need to specify the recipient key using the --recipient param"
-            sys.exit(1)
+            die("Error: need to specify the recipient key using the --recipient param")
         encrypt_handler(infile=opts.infile,
                         outfile=opts.outfile,
                         recipient=opts.recipient,
@@ -551,9 +544,7 @@ def main():
     # decrypt
     elif opts.action=='d':
         if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to operate " \
-                                "on using the --in param"
-            sys.exit(1)
+            die("Error: need to specify a file to operate on using the --in param")
         decrypt_handler(infile=opts.infile,
                         outfile=opts.outfile,
                         self=opts.self,
@@ -562,13 +553,9 @@ def main():
     # sign
     elif opts.action=='s':
         if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to operate " \
-                                "on using the --in param"
-            sys.exit(1)
+            die("Error: need to specify a file to operate on using the --in param")
         if not opts.self:
-            print >>sys.stderr, "Error: need to specify your own key using " \
-                                "the --self param"
-            sys.exit(1)
+            die("Error: need to specify your own key using the --self param")
         sign_handler(infile=opts.infile,
                      outfile=opts.outfile,
                      self=opts.self,
@@ -577,9 +564,7 @@ def main():
     # verify
     elif opts.action=='v':
         if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to operate " \
-                                "on using the --in param"
-            sys.exit(1)
+            die("Error: need to specify a file to operate on using the --in param")
         verify_handler(infile=opts.infile,
                      outfile=opts.outfile,
                      basedir=opts.basedir)
@@ -587,13 +572,9 @@ def main():
     # key sign
     elif opts.action=='m':
         if not opts.name:
-            print >>sys.stderr, "Error: need to specify a key to operate " \
-                                "on using the --name param"
-            sys.exit(1)
+            die("Error: need to specify a key to operate on using the --name param")
         if not opts.self:
-            print >>sys.stderr, "Error: need to specify your own key using " \
-                                "the --self param"
-            sys.exit(1)
+            die("Error: need to specify your own key using the --self param")
         keysign_handler(infile=opts.infile,
                         name=opts.name,
                         self=opts.self,
@@ -602,31 +583,23 @@ def main():
     # lists signatures owners on public keys
     elif opts.action=='C':
         if not opts.name:
-            print >>sys.stderr, "Error: need to specify a key to operate " \
-                                "on using the --name param"
-            sys.exit(1)
+            die("Error: need to specify a key to operate on using the --name param")
         keycheck_handler(name=opts.name,
                          basedir=opts.basedir)
 
     # forward encrypt
     elif opts.action=='e':
         if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to " \
-                                "operate on using the --in param"
-            sys.exit(1)
+            die("Error: need to specify a file to "
+                "operate on using the --in param")
         if not opts.recipient:
-            print >>sys.stderr, "Error: need to specify a recipient to " \
-                                "operate on using the --recipient param"
-            sys.exit(1)
+            die("Error: need to specify a recipient to "
+                "operate on using the --recipient param")
         if len(opts.recipient)>1:
-            print >>sys.stderr, "Error: you can only PFS encrypt to one " \
-                                "recipient."
-            sys.exit(1)
+            die("Error: you can only PFS encrypt to one recipient.")
         if not opts.self:
             # TODO could try to find out this automatically if non-ambiguous
-            print >>sys.stderr, "Error: need to specify your own key using " \
-                                "the --self param"
-            sys.exit(1)
+            die("Error: need to specify your own key using the --self param")
         fwd_encrypt_handler(opts.infile,
                         outfile=opts.outfile,
                         recipient=opts.recipient,
@@ -636,27 +609,25 @@ def main():
     # forward decrypt
     elif opts.action=='E':
         if not opts.infile:
-            print >>sys.stderr, "Error: need to specify a file to " \
-                                "operate on using the --in param"
-            sys.exit(1)
+            die("Error: need to specify a file to "
+                "operate on using the --in param")
         if not opts.recipient:
-            print >>sys.stderr, "Error: need to specify a recipient to " \
-                                "operate on using the --recipient param"
-            sys.exit(1)
+            die("Error: need to specify a recipient to "
+                "operate on using the --recipient param")
         if len(opts.recipient)>1:
-            print >>sys.stderr, "Error: you can only PFS decrypt from one " \
-                                "recipient."
-            sys.exit(1)
+            die("Error: you can only PFS decrypt from one recipient.")
         if not opts.self:
             # TODO could try to find out this automatically if non-ambiguous
-            print >>sys.stderr, "Error: need to specify your own key using " \
-                                "the --self param"
-            sys.exit(1)
+            die("Error: need to specify your own key using the --self param")
         fwd_decrypt_handler(opts.infile,
                             outfile=opts.outfile,
                             recipient=opts.recipient,
                             self=opts.self,
                             basedir=opts.basedir)
+
+def die(msg):
+    print >>sys.stderr, msg
+    sys.exit(1)
 
 if __name__ == '__main__':
     #__test()
