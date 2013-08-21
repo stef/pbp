@@ -524,7 +524,7 @@ def main():
     # list secret keys
     elif opts.action=='L':
         for i in getskeys(opts.basedir):
-            print ('valid' if i.valid > datetime.utcdatetime.now() > i.created
+            print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
                    else 'invalid'), i.keyid(), i.name
 
     # encrypt
