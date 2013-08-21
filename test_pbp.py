@@ -102,6 +102,13 @@ class TestPBP(unittest.TestCase):
         malformed = ''.join(chr(ord(c) ^ 42) for c in signed)
         self.assertTrue(pbp.verify(malformed, basedir=self.pbp_path) is None)
 
+    def test_sign_no_key(self):
+        self_key = self.gen_key()
+        signed = pbp.sign(MESSAGE, self=self_key)
+        rmtree(self.pbp_path)
+        self.gen_key()
+        self.assertTrue(pbp.verify(signed, basedir=self.pbp_path) is None)
+
     def test_sign(self):
         self_key = self.gen_key()
         self.assertTrue(pbp.verify(pbp.sign(MESSAGE, self=self_key),
