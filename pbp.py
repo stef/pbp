@@ -98,23 +98,21 @@ class Identity(object):
         elif type in ['cs', 'ss']:
             tmp = get_sk_filename(self.basedir, self.name)
             if os.path.exists(tmp):
-                with open(tmp, 'r') as fd:
-                    nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-                    k = scrypt.hash(getpass.getpass('Passphrase for decrypting subkeys for %s: ' % self.name),
-                                    scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-                    tmp=nacl.crypto_secretbox_open(fd.read(), nonce, k)
-                    if type == 'ss': self.ss=tmp[:nacl.crypto_sign_SECRETKEYBYTES]
-                    if type == 'cs': self.cs=tmp[nacl.crypto_sign_SECRETKEYBYTES:]
+                tmp = self.decrypt_with_user_pw(tmp, 'subkeys')
+                if type == 'ss': self.ss = tmp[:nacl.crypto_sign_SECRETKEYBYTES]
+                if type == 'cs': self.cs = tmp[nacl.crypto_sign_SECRETKEYBYTES:]
 
         elif type == 'ms':
             tmp = get_sk_filename(self.basedir, self.name, ext='mk')
             if os.path.exists(tmp):
-                with open(tmp, 'r') as fd:
-                    nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-                    k = scrypt.hash(getpass.getpass('Passphrase for decrypting master key for %s: ' % self.name),
-                                    scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-                    tmp=nacl.crypto_secretbox_open(fd.read(), nonce, k)
-                    self.ms=tmp
+                self.ms = self.decrypt_with_user_pw(tmp, 'master key')
+
+    def decrypt_with_user_pw(self, filename, pw_for):
+        with file(filename) as fd:
+            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+            prompt = 'Passphrase for decrypting {0} for {1}: '.format(pw_for, self.name)
+            k = scrypt.hash(getpass.getpass(prompt), scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+            return nacl.crypto_secretbox_open(fd.read(), nonce, k)
 
     def savepublickeys(self):
         with open(get_pk_filename(self.basedir, self.name), 'w') as fd:
