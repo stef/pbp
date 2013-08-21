@@ -6,6 +6,10 @@ from utils import split_by_n, b85encode
 # TODO make processing buffered!
 # TODO add output armoring
 
+ASYM_CIPHER = 5
+BLOCK_CIPHER = 23
+STREAM_CIPHER = 42
+
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
 
@@ -258,7 +262,7 @@ def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=Non
                                              self=Identity(self, basedir=basedir))
             if type != 'a':
                 raise ValueError
-            fd.write(struct.pack("B", 5))
+            fd.write(struct.pack("B", ASYM_CIPHER))
             fd.write(nonce)
             fd.write(struct.pack("L", len(r)))
             for rnonce, ct in r:
@@ -271,12 +275,12 @@ def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=Non
             type, nonce, cipher = encrypt(msg)
             # until we pass a param to encrypt above, it will always be block cipher
             if type == 'c':
-                fd.write(struct.pack("B", 23))
+                fd.write(struct.pack("B", BLOCK_CIPHER))
                 fd.write(nonce)
                 fd.write(cipher)
             elif type == 's':
                 # use the stream cipher
-                fd.write(struct.pack("B", 42))
+                fd.write(struct.pack("B", STREAM_CIPHER))
                 fd.write(nonce)
                 fd.write(cipher)
             else:
@@ -286,7 +290,7 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
     with open(infile,'r') as fd:
         type=struct.unpack('B',fd.read(1))[0]
         # asym
-        if type == 5:
+        if type == ASYM_CIPHER:
             if not self:
                 print >>sys.stderr, "Error: need to specify your own key using the --self param"
                 raise ValueError
@@ -316,12 +320,12 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
             return
 
         # sym
-        elif type == 23:
+        elif type == BLOCK_CIPHER:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             msg = decrypt(('c', nonce, fd.read()))
 
         # stream
-        elif type == 42:
+        elif type == STREAM_CIPHER:
             nonce = fd.read(nacl.crypto_stream_NONCEBYTES)
             msg = decrypt(('s', nonce, fd.read()))
 
