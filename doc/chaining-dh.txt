@@ -111,11 +111,12 @@ previous key.
 
 4.3 Ephemeral Context
 
-All parts of the context are constantly changing in case of regular
-key-updates. Compromise of the parameters of a context are generated
-independently of the previous keys, and thus only reveal the contents
-of the messages encrypted with the incoming and outgoing key, in an
-optimal alternating message exchange this is two messages.
+All parts of the context are constantly changing in case of
+alternating messages. The parameters of a context are generated
+independently of the previous keys, and thus a compromised key will
+only reveal the contents of the messages encrypted with this
+compromised key - but barring any possibility for active MITM attacks
+no further keying or other information can leak.
 
 4.4 Featureless
 
