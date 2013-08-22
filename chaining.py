@@ -17,7 +17,7 @@
 
 # (C) 2013 by Stefan Marsiske, <s@ctrlc.hu>
 
-import nacl
+import nacl, os
 from pbp import Identity, die, defaultbase as basedir
 from utils import b85encode
 
@@ -43,10 +43,45 @@ class ChainingContext(object):
                                          )))
 
     def load(self):
-        pass # TODO here or in pbp.py?
+        keyfdir="%s/sk/.%s" % (basedir, self.me)
+        if not os.path.exists(keyfdir):
+            os.mkdir(keyfdir)
+            return self
+        keyfname='%s/%s' % (keyfdir, self.peer)
+        if not os.path.exists(keyfname):
+            return self
+        mkey = Identity(self.me, basedir=basedir)
+        with open(keyfname,'r') as fd:
+            nonce = fd.read(nacl.crypto_box_NONCEBYTES)
+            plain =  nacl.crypto_box_open(fd.read(), nonce, mkey.cp, mkey.cs)
+        c=nacl.crypto_scalarmult_curve25519_BYTES
+        i=0
+        self.e_in     = plain[:c]
+        i+=c
+        self.e_out    = plain[i:i+c]
+        i+=c
+        self.peer_pub = plain[i:i+c]
+        i+=c
+        c=nacl.crypto_secretbox_KEYBYTES
+        self.out_k    = plain[i:i+c]
+        i+=c
+        self.in_k     = plain[i:i+c]
+        i+=c
+        self.in_prev  = plain[i:i+c]
 
     def save(self):
-        pass # TODO here or in pbp.py?
+        fname="%s/sk/.%s/%s" % (basedir, self.me, self.peer)
+        nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
+        ctx=''.join((self.e_in,
+                     self.e_out,
+                     self.peer_pub,
+                     self.out_k,
+                     self.in_k,
+                     self.in_prev))
+        mkey = Identity(self.me, basedir=basedir)
+        with open(fname,'w') as fd:
+            fd.write(nonce)
+            fd.write(nacl.crypto_box(ctx, nonce, mkey.cp, mkey.cs))
 
     def send(self,plain):
         # update context
@@ -121,6 +156,9 @@ def test():
     alice = ChainingContext('alice','bob')
     bob = ChainingContext('bob','alice')
 
+    alice.load()
+    bob.load()
+
     c,n = alice.send('howdy')
     print bob.receive(c,n)
 
@@ -164,6 +202,22 @@ def test():
     # contine normal sending
     c,n = alice.send('ok')
     print bob.receive(c,n)
+
+    bob.save()
+    alice.save()
+
+    alice1 = ChainingContext('alice','bob')
+    bob1 = ChainingContext('bob','alice')
+
+    print "testing copies"
+    alice1.load()
+    bob1.load()
+
+    c,n = alice1.send('howdy')
+    print bob1.receive(c,n)
+
+    c,n = bob1.send('howdy')
+    print alice1.receive(c,n)
 
 if __name__ == '__main__':
     test()
