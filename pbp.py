@@ -3,6 +3,7 @@ import nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
 from utils import split_by_n, b85encode
+import chaining
 
 # TODO make processing buffered!
 # TODO add output armoring
@@ -379,109 +380,31 @@ def keycheck_handler(name=None, basedir=None):
         i+=1
     print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
 
-def save_fwd(data, self, recipient, basedir):
-    fname="%s/sk/.%s/%s" % (basedir, self.name, recipient)
-    nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
-    with open(fname,'w') as fd:
-        fd.write(nonce)
-        fd.write(nacl.crypto_box(data, nonce, self.cp, self.cs))
-
-def load_fwd(self, recipient, basedir):
-    mynext = myprev = peer = ('\0' * nacl.crypto_secretbox_KEYBYTES)
-    keyfdir="%s/sk/.%s" % (basedir, self.name)
-    if not os.path.exists(keyfdir):
-        os.mkdir(keyfdir)
-        return (mynext, myprev, peer)
-    keyfname='%s/%s' % (keyfdir, recipient)
-    if not os.path.exists(keyfname):
-        return (mynext, myprev, peer)
-    with open(keyfname,'r') as fd:
-        nonce = fd.read(nacl.crypto_box_NONCEBYTES)
-        plain =  nacl.crypto_box_open(fd.read(), nonce, self.cp, self.cs)
-    return (plain[:nacl.crypto_secretbox_KEYBYTES],
-            plain[nacl.crypto_secretbox_KEYBYTES:nacl.crypto_secretbox_KEYBYTES*2],
-            plain[nacl.crypto_secretbox_KEYBYTES*2:nacl.crypto_secretbox_KEYBYTES*3])
-
-def fwd_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
+def chaining_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
     output_filename = outfile if outfile else infile + '.pbp'
-    self=Identity(self, basedir=basedir)
-    mynext, myprev, peer = load_fwd(self,recipient[0], basedir)
-    oldnext = mynext
-    while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
-        mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-    if oldnext != mynext:
-        save_fwd(''.join((mynext, myprev, peer)), self, recipient[0], basedir)
+    ctx=chaining.ChainingContext(self, recipient, basedir)
+    ctx.load()
+    with open(infile, 'r') as inp:
+        msg=inp.read()
+    cipher, nonce = ctx.send(msg)
+    with open(output_filename, 'w') as fd:
+        fd.write(nonce)
+        fd.write(cipher)
+    ctx.save()
 
+def chaining_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
+    ctx=chaining.ChainingContext(self, recipient, basedir)
+    ctx.load()
     with open(infile,'r') as fd:
-        msg=fd.read()
-
-    if peer == ('\0' * nacl.crypto_secretbox_KEYBYTES):
-        # encrypt using public key
-        type, nonce, r, cipher = encrypt(mynext+msg,
-                                         recipients=[Identity(recipient[0], basedir=basedir)],
-                                         self=self)
-        with open(output_filename, 'w') as fd:
-            fd.write(nonce)
-            fd.write(r[0][0])
-            fd.write(struct.pack("B",len(r[0][1])))
-            fd.write(r[0][1])
-            fd.write(cipher)
+        nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+        ct = fd.read()
+    msg = ctx.receive(ct,nonce)
+    if not outfile:
+        print msg
     else:
-        # encrypt using old fwd key
-        type, nonce, cipher = encrypt(mynext+msg, k=peer)
-        with open(output_filename, 'w') as fd:
-            fd.write(nonce)
-            fd.write(cipher)
-
-def fwd_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
-    self=Identity(self, basedir=basedir)
-    mynext, myprev, peer = load_fwd(self,recipient[0], basedir)
-
-    if mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
-        with open(infile,'r') as fd:
-            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            rnonce=fd.read(nacl.crypto_box_NONCEBYTES)
-            ct = read_prefixed_byte_length(fd)
-            res = decrypt(('a',
-                           nonce,
-                           [(rnonce,ct)],
-                           fd.read()),
-                          basedir=basedir,
-                          self=self)
-        if not res:
-            die("could not decrypt with public key")
-
-        peer = res[1][:nacl.crypto_secretbox_KEYBYTES]
-        if not outfile:
-            print res[1][nacl.crypto_secretbox_KEYBYTES:]
-        else:
-            with open(outfile, 'w') as fd:
-                fd.write(res[1][nacl.crypto_secretbox_KEYBYTES:])
-    else:
-        newkey=False
-        with open(infile,'r') as fd:
-            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            msg = fd.read()
-            try:
-                res = decrypt(('c', nonce, msg), k=mynext )
-                newkey = True
-            except ValueError:
-                res = decrypt(('c', nonce, msg), k=myprev )
-            if not res:
-                die("could not decrypt with fwd key")
-
-        if newkey:
-            myprev = mynext
-            mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-            while mynext == ('\0' * nacl.crypto_secretbox_KEYBYTES):
-                mynext=nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-        peer = res[:nacl.crypto_secretbox_KEYBYTES]
-        if not outfile:
-            print res[nacl.crypto_secretbox_KEYBYTES:]
-        else:
-            with open(outfile, 'w') as fd:
-                fd.write(res[nacl.crypto_secretbox_KEYBYTES:])
-    save_fwd(''.join((mynext, myprev, peer)), self, recipient[0], basedir)
+        with open(outfile, 'w') as fd:
+            fd.write(msg)
+    ctx.save()
 
 def read_prefixed_byte_length(fd):
     return fd.read(struct.unpack('B', fd.read(1))[0])
@@ -586,9 +509,9 @@ def main():
         ensure_only_one_recipient(opts)
         # TODO could try to find out this automatically if non-ambiguous
         ensure_self_specified(opts)
-        fwd_encrypt_handler(opts.infile,
+        chaining_encrypt_handler(opts.infile,
                         outfile=opts.outfile,
-                        recipient=opts.recipient,
+                        recipient=opts.recipient[0],
                         self=opts.self,
                         basedir=opts.basedir)
 
@@ -599,9 +522,9 @@ def main():
         ensure_only_one_recipient(opts)
         # TODO could try to find out this automatically if non-ambiguous
         ensure_self_specified(opts)
-        fwd_decrypt_handler(opts.infile,
+        chaining_decrypt_handler(opts.infile,
                             outfile=opts.outfile,
-                            recipient=opts.recipient,
+                            recipient=opts.recipient[0],
                             self=opts.self,
                             basedir=opts.basedir)
 
