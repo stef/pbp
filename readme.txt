@@ -2,7 +2,8 @@
 
 # this is a simple python wrapper around nacl, to provide basic
 # functionality resembling PGP. It uses scrypt for a KDF and a much
-# simpler packet format, that is much harder to fingerprint.
+# simpler packet format, that is much harder to fingerprint, and
+# provides a PFS mode.
 
 # this is a automatic install script besides
 # use:
