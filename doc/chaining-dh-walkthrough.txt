@@ -49,11 +49,11 @@ The context contains various parameters for the protocol:
 
 3.1 Send
 
-A sending party first updates the context if it has received anything
-since last sending or has never established contact with the receiving
-party before.
+A sending party updates its context if it has received anything since
+last sending or has never established contact with the receiving party
+before.
 
-First we generate a new e_out exponent, if peer_pub is set:
+First we generate a new e_out exponent, also if peer_pub is set:
 1. randomly generate a new e_in exponent.
 2. storing the current incoming key in the previous slot (in_prev=in)
    This ensures, that we can still receive messages that were sent before
