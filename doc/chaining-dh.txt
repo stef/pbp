@@ -37,7 +37,7 @@ public primitives:
     cipher, nonce = ctx.send(msg)
 
 and
-    msg = ctx.receive(c, nonce)
+    msg = ctx.receive(cipher, nonce)
 
 The context contains various parameters for the protocol:
     e_out:       exponent for the DH exchange producing the outgoing key
@@ -68,7 +68,7 @@ public DH components based on e_out and e_in, and concatenating them
 with the plaintext.
 
 Finally depending on whether outgoing key is set, we either use that
-or the peers public key. To encrypt the packet. The result is a nonce,
+or the peers public key to encrypt the packet. The result is a nonce,
 and cipher text. The total overhead is 80 bytes, 16 for the nonce, and
 2x32 bytes for the two public components.
 
