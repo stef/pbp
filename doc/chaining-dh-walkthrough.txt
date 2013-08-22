@@ -8,12 +8,12 @@ conversation.
 
 2. Problem
 
-Current PGP either uses secret key crypto or public key used for
-encrypting a packet key. With the advent of an adversary that can
-archive selectively encrypted content for later decryption, when the
-secret part of the public key crypto can be recovered, means that
-suddenly years of so far encrypted content become available to the
-adversary.
+Current PGP either uses secret key crypto or public key crypto which
+is used for encrypting a message key. With the advent of an adversary
+that can archive selectively encrypted content for later decryption,
+when the secret part of the public key crypto can be recovered, means
+that suddenly years of so far encrypted content become available to
+the adversary.
 
 Interactive protocols like OTR or TLSv1.2 deploy ephemeral keys which
 are discarded regularly, this is usually achieved by periodically
@@ -24,11 +24,11 @@ nature of the mode.
 3. Proposal
 
 Below we propose a chained DH mode for offline encryption, which
-bootstraps the first few packets of a conversation using public key
+bootstraps the first few messages of a conversation using public key
 crypto. The underlying cryptographic primitives are based on the NaCl
 toolkit, the proposal only specifies a protocol for continuously
 exchanging ephemeral keys in a way, that prohibits an archiving
-adversary to recover more packets from one compromised one.
+adversary to recover more messages from one compromised one.
 
 Mimicking the simple interface provided by the NaCl library, the
 protocol defines a context for each of the communicating peers and two
@@ -56,8 +56,8 @@ party before.
 First we generate a new e_out exponent, if peer_pub is set:
 1. randomly generate a new e_in exponent.
 2. storing the current incoming key in the previous slot (in_prev=in)
-   This ensures, that we can still receive packets that were sent before
-   this packet arrived at the peer.
+   This ensures, that we can still receive messages that were sent before
+   this messages arrived at the peer.
 3. calculate the incoming key 'in' by peer_pub^e_in
 4. reset peer_pub - so that repeated sends without ACKs will not change
     state.
@@ -92,7 +92,7 @@ Finally we return the plaintext.
 4.1 Claims
 
 Public key crypto is used to encrypt the first 2 messages of a
-conversation. Starting with the first answer (packet #3 - in an
+conversation. Starting with the first answer (messages #3 - in an
 optimal case) from the originally initiating party ephemeral keys are
 used. The originally answering party can start using ephemeral keys
 beginning from their second response. This assumes the optimal case
