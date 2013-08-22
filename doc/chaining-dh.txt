@@ -102,7 +102,7 @@ where the first four messages are sent in alternating directions.
 
 4.2 Resilience
 
-Assuming the context is persistent, the protocol allows for loosing or
+Assuming the context is persistent, the protocol allows for losing or
 sending messages repeatedly without receiving key updates, in this
 case the two-step update of the context ensures that the same keys are
 re-used on both sides until a successful key update is made. Similarly
