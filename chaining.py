@@ -32,15 +32,8 @@ class ChainingContext(object):
         self.in_prev  = ('\0' * nacl.crypto_secretbox_KEYBYTES)
         self.peer_pub = ('\0' * nacl.crypto_scalarmult_curve25519_BYTES)
 
-    def str(self):
-        return "%s:\n\t%s" % (self.me,
-                            '\n\t'.join((b85encode(self.out_k),
-                                         b85encode(self.in_k),
-                                         #b85encode(self.peer_pub),
-                                         #b85encode(self.in_prev),
-                                         #b85encode(self.e_in),
-                                         #b85encode(self.e_out)
-                                         )))
+    def __repr__(self):
+        return "<ChaingingCtx %s:%s>" % (self.me, self.peer)
 
     def load(self):
         keyfdir="%s/sk/.%s" % (basedir, self.me)
@@ -155,6 +148,9 @@ def test():
     basedir = 'test-pbp'
     alice = ChainingContext('alice','bob')
     bob = ChainingContext('bob','alice')
+
+    print bob
+    print alice
 
     alice.load()
     bob.load()
