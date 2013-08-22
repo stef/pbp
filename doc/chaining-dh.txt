@@ -91,7 +91,7 @@ Finally we return the plaintext.
 
 4. Properties
 
-4.1 Claims
+4.1 Bootstrapping
 
 Public key crypto is used to encrypt the first 2 messages of a
 conversation. Starting with the first answer (messages #3 - in an
