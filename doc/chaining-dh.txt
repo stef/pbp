@@ -69,7 +69,8 @@ with the plaintext.
 
 Finally depending on whether outgoing key is set, we either use that
 or the peers public key. To encrypt the packet. The result is a nonce,
-and cipher text.
+and cipher text. The total overhead is 80 bytes, 16 for the nonce, and
+2x32 bytes for the two public components.
 
 3.2 Receive
 
