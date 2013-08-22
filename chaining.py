@@ -195,7 +195,20 @@ def test():
     print alice.receive(c,n)
     print bob.receive(c1,n1)
 
-    # contine normal sending
+    # continue normal sending
+    c,n = alice.send('howdy')
+    print bob.receive(c,n)
+
+    # out of bound sending
+    c,n = bob.send('howdy')
+    c1,n1 = bob.send('howdy')
+    # crossing packets
+    c2,n2 = alice.send('howdy')
+    print alice.receive(c1,n1)
+    print alice.receive(c,n)
+    print bob.receive(c2,n2)
+
+    # continue normal sending
     c,n = alice.send('ok')
     print bob.receive(c,n)
 
