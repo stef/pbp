@@ -53,18 +53,19 @@ A sending party updates its context if it has received anything since
 last sending or has never established contact with the receiving party
 before.
 
-First we generate a new e_out exponent, also if peer_pub is set:
+First we generate a new e_out exponent, also if peer_pub is set (this
+is only true after receiving a message):
 1. randomly generate a new e_in exponent.
 2. storing the current incoming key in the previous slot (in_prev=in)
    This ensures, that we can still receive messages that were sent before
-   this messages arrived at the peer.
+   this message arrived at the peer.
 3. calculate the incoming key 'in' by peer_pub^e_in
 4. reset peer_pub - so that repeated sends without ACKs will not change
-    state.
+   state.
 
 After updating the context we construct the packet, by calculating two
 public DH components based on e_out and e_in, and concatenating them
-with the message plaintext.
+with the plaintext.
 
 Finally depending on whether outgoing key is set, we either use that
 or the peers public key. To encrypt the packet. The result is a nonce,
