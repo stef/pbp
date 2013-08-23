@@ -3,17 +3,16 @@ Specification of the PFS mode of pbp
 1. Goal
 
 Create a non-interactive PFS encryption mode for offline operation
-that switches encryption keys on each switch of direction of the
-conversation.
+that updates ephemeral encryption keys on each switch of direction of
+the conversation.
 
 2. Problem
 
 Current PGP either uses secret key crypto or public key crypto which
 is used for encrypting a message key. With the advent of an adversary
 that can archive selectively encrypted content for later decryption,
-when the secret part of the public key crypto can be recovered, means
-that suddenly years of so far encrypted content become available to
-the adversary.
+when the secret key crypto can be recovered, means that suddenly years
+of so far encrypted content become available to the adversary.
 
 Interactive protocols like OTR or TLSv1.2 deploy ephemeral keys which
 are discarded regularly, this is usually achieved by periodically
@@ -49,19 +48,20 @@ The context contains various parameters for the protocol:
 
 3.1 Send
 
-A sending party updates its context if it has received anything since
+A sending party updates its context if it has received a message since
 last sending or has never established contact with the receiving party
 before.
 
-First we generate a new e_out exponent, also if peer_pub is set (this
-is only true after receiving a message):
+First we generate a new e_out exponent. Furthermore if peer_pub is set
+(this is only true after receiving a message, not on repeated sends
+without receiving context updates in response messages):
 1. randomly generate a new e_in exponent.
 2. storing the current incoming key in the previous slot (in_prev=in)
    This ensures, that we can still receive messages that were sent before
    this message arrived at the peer.
 3. calculate the incoming key 'in' by peer_pub^e_in
-4. reset peer_pub - so that repeated sends without ACKs will not change
-   state.
+4. reset peer_pub - so that repeated sends without context updates
+   from incoming response messages will not change state.
 
 After updating the context we construct the packet, by calculating two
 public DH components based on e_out and e_in, and concatenating them
@@ -69,8 +69,9 @@ with the plaintext.
 
 Finally depending on whether outgoing key is set, we either use that
 or the peers public key to encrypt the packet. The result is a nonce,
-and cipher text. The total overhead is 80 bytes, 16 for the nonce, and
-2x32 bytes for the two public components.
+and ciphertext. The total overhead is 80 bytes, 16 for the nonce, and
+2x32 bytes for the two public components if we use NaCl and its
+primitives.
 
 3.2 Receive
 
@@ -94,11 +95,12 @@ Finally we return the plaintext.
 4.1 Bootstrapping
 
 Public key crypto is used to encrypt the first 2 messages of a
-conversation. Starting with the first answer (messages #3 - in an
-optimal case) from the originally initiating party ephemeral keys are
-used. The originally answering party can start using ephemeral keys
-beginning from their second response. This assumes the optimal case
-where the first four messages are sent in alternating directions.
+conversation. Starting with the first answer (message #3 - in an
+optimal case with messages going in alternating directions) from the
+originally initiating party ephemeral keys are used. The originally
+answering party can start using ephemeral keys beginning from their
+second response. Again all this assumes the optimal case where the
+first four messages are sent in alternating directions.
 
 4.2 Resilience
 
