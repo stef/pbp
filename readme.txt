@@ -25,22 +25,10 @@ set -x
 git clone https://github.com/stef/pbp.git
 cd pbp
 
+TODO!!!!! document installing libsodium, or build it inside pbp/setup.py!!!
+
 virtualenv env
 source env/bin/activate
-
-git clone git://github.com/seanlynch/pynacl.git
-cd pynacl/nacl-20110221
-set +x
-echo "the following compilation can take 30m on 3-4 year old hw"
-echo "please be patient"
-set -x
-./do
-
-cd ..
-python ./setup.py install
-python ./setup.py install    # there's some weird install bug
-cd ..
-rm -rf pynacl
 
 pip install -r deps.txt
 
