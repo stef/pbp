@@ -1,2 +1,2 @@
-#git+git://github.com/seanlynch/pynacl.git # needs a nacl to be precompiled, see readme.txt
+cffi
 scrypt
