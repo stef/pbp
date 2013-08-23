@@ -1,4 +1,4 @@
-Specification of the PFS mode of pbp
+Specification of the chaining DH mode for pbp
 
 1. Goal
 
