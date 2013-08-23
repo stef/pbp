@@ -40,40 +40,40 @@ class TestPBP(unittest.TestCase):
         self.assertEquals(len(skeys), 1)
         # TODO why doesn't it match: self.assertEquals(skeys, [i])
 
-    def test_encrypt_sym_stream_pwprompt_fail(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
-        decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
-        self.assertNotEquals(decrypted, MESSAGE)
+    #def test_encrypt_sym_stream_pwprompt_fail(self):
+    #    encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
+    #    decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
+    #    self.assertNotEquals(decrypted, MESSAGE)
 
     def test_encrypt_sym_pwprompt_fail(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
         with self.assertRaises(ValueError):
             pbp.decrypt(encrypted, basedir=self.pbp_path)
 
-    def test_encrypt_sym_stream_fail(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
-        decrypted = pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
-        self.assertNotEquals(decrypted, MESSAGE)
+    #def test_encrypt_sym_stream_fail(self):
+    #    encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
+    #    decrypted = pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
+    #    self.assertNotEquals(decrypted, MESSAGE)
 
     def test_encrypt_sym_fail(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
         with self.assertRaises(ValueError):
             pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
 
-    def test_encrypt_sym_stream_pwprompt(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD, stream=True)
-        decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
-        self.assertEquals(decrypted, MESSAGE)
+    #def test_encrypt_sym_stream_pwprompt(self):
+    #    encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD, stream=True)
+    #    decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
+    #    self.assertEquals(decrypted, MESSAGE)
 
     def test_encrypt_sym_pwprompt(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
         decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
         self.assertEquals(decrypted, MESSAGE)
 
-    def test_encrypt_sym_stream(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD, stream=True)
-        decrypted = pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
-        self.assertEquals(decrypted, MESSAGE)
+    #def test_encrypt_sym_stream(self):
+    #    encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD, stream=True)
+    #    decrypted = pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
+    #    self.assertEquals(decrypted, MESSAGE)
 
     def test_encrypt_sym(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
