@@ -22,15 +22,21 @@
 # TODO implement ascii armoring
 
 set -x
-git clone https://github.com/stef/pbp.git
+git clone https://github.com/stef/pbp.git || exit 1
 cd pbp
 
-TODO!!!!! document installing libsodium, or build it inside pbp/setup.py!!!
+# install latest libsodium from https://github.com/jedisct1/libsodium
+curl -L https://download.libsodium.org/libsodium/releases/LATEST.tar.gz | tar xz || exit 1
+cd libsodium-* || exit 1
+./configure || exit 1
+make && make check && sudo make install || exit 1
+cd ..
+rm -rf libsodium-* || exit 1
 
-virtualenv env
+virtualenv env || exit 1
 source env/bin/activate
 
-pip install -r deps.txt
+pip install -r deps.txt || exit 1
 
 # check out test.sh for examples how to use pbp.py
 ./pbp.py -h
