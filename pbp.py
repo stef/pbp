@@ -10,7 +10,6 @@ import chaining
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
-STREAM_CIPHER = 42
 
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
@@ -83,7 +82,7 @@ class Identity(object):
         if type in ['mp','cp','sp', 'created', 'valid']:
             with open(get_pk_filename(self.basedir, self.name), 'r') as fd:
                 tmp=fd.read()
-            mk=tmp[nacl.crypto_sign_PUBLICKEYBYTES:nacl.crypto_sign_PUBLICKEYBYTES*2]
+            mk=tmp[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
             tmp = nacl.crypto_sign_open(tmp, mk)
             if type == 'mp': self.mp=mk
             i=nacl.crypto_sign_PUBLICKEYBYTES
@@ -182,18 +181,14 @@ def getkey(l, pwd='', empty=False, text=''):
         _prev_passphrase = pwd
         return scrypt.hash(pwd, scrypt_salt)[:l]
 
-def encrypt(msg, recipients=None, stream=False, pwd=None, self=None, k=None):
+def encrypt(msg, recipients=None, pwd=None, self=None, k=None):
     # encrypts msg
     if not recipients:
-        if stream:
-            nonce = nacl.randombytes(nacl.crypto_stream_NONCEBYTES)
-            if not k: k = getkey(nacl.crypto_stream_KEYBYTES, pwd=pwd)
-            return ('s', nonce, nacl.crypto_stream_xor(msg, nonce, k))
         nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
         if not k: k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
         return ('c', nonce, nacl.crypto_secretbox(msg, nonce, k))
     sk = self.cs
-    mk = k or nacl.randombytes(nacl.crypto_stream_KEYBYTES)
+    mk = k or nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
     c=[]
     for r in recipients:
         nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
@@ -202,11 +197,6 @@ def encrypt(msg, recipients=None, stream=False, pwd=None, self=None, k=None):
     return ('a', nonce, c, nacl.crypto_secretbox(msg, nonce, mk))
 
 def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
-    if pkt[0]=='s':
-        # stream
-        if not k:
-            k = get_decrypt_key(pwd)
-        return nacl.crypto_stream_xor(pkt[2], pkt[1], k)
     if pkt[0]=='c':
         # symmetric
         if not k:
@@ -274,11 +264,6 @@ def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=Non
                 fd.write(struct.pack("B", BLOCK_CIPHER))
                 fd.write(nonce)
                 fd.write(cipher)
-            elif type == 's':
-                # use the stream cipher
-                fd.write(struct.pack("B", STREAM_CIPHER))
-                fd.write(nonce)
-                fd.write(cipher)
             else:
                 raise ValueError
 
@@ -318,11 +303,6 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
         elif type == BLOCK_CIPHER:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             msg = decrypt(('c', nonce, fd.read()))
-
-        # stream
-        elif type == STREAM_CIPHER:
-            nonce = fd.read(nacl.crypto_stream_NONCEBYTES)
-            msg = decrypt(('s', nonce, fd.read()))
 
         if len(msg):
             if not outfile:
