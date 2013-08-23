@@ -134,8 +134,6 @@ def test():
     pk, sk = crypto_sign_keypair()
     signed = crypto_sign('howdy',sk)
     print crypto_sign_open(signed, pk)
-    print crypto_sign_BYTES
-    print repr(crypto_sign('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',sk))
 
 if __name__ == '__main__':
     test()
