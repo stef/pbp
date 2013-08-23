@@ -56,6 +56,7 @@ def crypto_box_keypair():
     return (pk, sk)
 
 def crypto_box(msg, nonce, pk, sk):
+    if None in (msg, nonce, pk, sk): raise ValueError
     padded = b"\x00" * crypto_box_ZEROBYTES + msg
     c = sodium.ffi.new("unsigned char[]", len(padded))
     if not sodium.lib.crypto_box(c, padded, len(padded), nonce, pk, sk):
@@ -63,6 +64,7 @@ def crypto_box(msg, nonce, pk, sk):
     return sodium.ffi.buffer(c, len(padded))[crypto_box_BOXZEROBYTES:]
 
 def crypto_box_open(c, nonce, pk, sk):
+    if None in (c, nonce, pk, sk): raise ValueError
     padded = b"\x00" * crypto_box_BOXZEROBYTES + c
     msg = sodium.ffi.new("unsigned char[]", len(padded))
     if not sodium.lib.crypto_box_open(msg, padded, len(padded), nonce, pk, sk):
@@ -70,6 +72,7 @@ def crypto_box_open(c, nonce, pk, sk):
     return sodium.ffi.buffer(msg, len(padded))[crypto_box_ZEROBYTES:]
 
 def crypto_secretbox(msg, nonce, k):
+    if None in (msg, nonce, k): raise ValueError
     padded = b"\x00" * crypto_secretbox_ZEROBYTES + msg
     c = sodium.ffi.new("unsigned char[]", len(padded))
     if not sodium.lib.crypto_secretbox(c, padded, len(padded), nonce, k):
@@ -77,6 +80,7 @@ def crypto_secretbox(msg, nonce, k):
     return sodium.ffi.buffer(c, len(padded))[crypto_secretbox_BOXZEROBYTES:]
 
 def crypto_secretbox_open(c, nonce, k):
+    if None in (c, nonce, k): raise ValueError
     padded = b"\x00" * crypto_secretbox_BOXZEROBYTES + c
     msg = sodium.ffi.new("unsigned char[]", len(padded))
     if not sodium.lib.crypto_secretbox_open(msg, padded, len(padded), nonce, k):
@@ -93,6 +97,7 @@ def crypto_sign_keypair():
     return (pk, sk)
 
 def crypto_sign(m, sk):
+    if None in (m, sk): raise ValueError
     smsg = sodium.ffi.new("unsigned char[]", len(m)+crypto_sign_BYTES)
     smsglen = sodium.ffi.new("unsigned long long *")
     if not sodium.lib.crypto_sign(smsg, smsglen, m, len(m), sk):
@@ -100,6 +105,7 @@ def crypto_sign(m, sk):
     return sodium.ffi.buffer(smsg, smsglen[0])[:]
 
 def crypto_sign_open(sm, pk):
+    if None in (sm, pk): raise ValueError
     msg = sodium.ffi.new("unsigned char[]", len(sm))
     msglen = sodium.ffi.new("unsigned long long *")
     if not sodium.lib.crypto_sign_open(msg, msglen, sm, len(sm), pk):
