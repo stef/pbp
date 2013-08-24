@@ -192,8 +192,8 @@ def get_pk_dir(basedir):
     return os.path.join(basedir, 'pk')
 
 def test():
-    me = Identity('me', basedir='test-pbp')
-    you = Identity('you', basedir='test-pbp')
+    me = Identity('me', create=True, basedir='test-pbp')
+    you = Identity('you', create=True, basedir='test-pbp')
     print me
     print you
     print you.decrypt(me.encrypt('howdy', [you]))
