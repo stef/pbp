@@ -2,11 +2,10 @@
 import nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
-from utils import split_by_n, b85encode
+from utils import split_by_n, b85encode, b85decode
 import chaining
 
 # TODO make processing buffered!
-# TODO add output armoring
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
@@ -234,7 +233,8 @@ def verify(msg, basedir=defaultbase, master=False):
             return keys.name, nacl.crypto_sign_open(msg, verifying_key)
         except ValueError: pass
 
-def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
+def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
+    if not infile: infile = sys.stdin
     with open(infile,'r') as fd:
         msg=fd.read()
     output_filename = outfile if outfile else infile + '.pbp'
@@ -267,7 +267,8 @@ def encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=Non
             else:
                 raise ValueError
 
-def decrypt_handler(infile, outfile=None, self=None, basedir=None):
+def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
+    if not infile: infile = sys.stdin
     with open(infile,'r') as fd:
         type=struct.unpack('B',fd.read(1))[0]
         # asym
@@ -313,27 +314,40 @@ def decrypt_handler(infile, outfile=None, self=None, basedir=None):
         else:
             print >>sys.stderr,  'decryption failed'
 
-def sign_handler(infile, outfile=None, self=None, basedir=None):
+def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
+    if not infile: infile = sys.stdin
     with open(infile,'r') as fd:
         data = fd.read()
+    signed = sign(data, self=Identity(self, basedir=basedir))
+    if armor:
+        sig = signed[:nacl.crypto_sign_BYTES]
+        signed = "nacl-%s\n%s" % (b85encode(sig),
+                                  signed[nacl.crypto_sign_BYTES:])
+        if not outfile:
+            sys.stdout.write(signed)
+            return
     with open(outfile or infile+'.sig','w') as fd:
-        fd.write(sign(data, self=Identity(self, basedir=basedir)))
+        fd.write(signed)
 
-def verify_handler(infile, outfile=None, basedir=None):
+def verify_handler(infile=None, outfile=None, basedir=None):
+    if not infile: infile = sys.stdin
     with open(infile,'r') as fd:
         data = fd.read()
+    if data.startswith('nacl-'):
+        tmp = data.split('\n', 1)
+        data = "%s%s" % (b85decode(tmp[0][5:]),tmp[1])
     sender, msg = verify(data, basedir=basedir) or ('', 'verification failed')
     if len(sender)>0:
         if outfile:
             with open(outfile,'w') as fd:
                 fd.write(msg)
         else:
-            print msg
+            sys.stdout.write(msg)
         print >>sys.stderr, "good message from", sender
     else:
         print >>sys.stderr, msg
 
-def keysign_handler(infile, name=None, self=None, basedir=None):
+def keysign_handler(name=None, self=None, basedir=None):
     fname = get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         data = fd.read()
@@ -360,7 +374,8 @@ def keycheck_handler(name=None, basedir=None):
         i+=1
     print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
 
-def chaining_encrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
+def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
+    if not infile: infile = sys.stdin
     output_filename = outfile if outfile else infile + '.pbp'
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
@@ -372,7 +387,8 @@ def chaining_encrypt_handler(infile, outfile=None, recipient=None, self=None, ba
         fd.write(cipher)
     ctx.save()
 
-def chaining_decrypt_handler(infile, outfile=None, recipient=None, self=None, basedir=None):
+def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
+    if not infile: infile = sys.stdin
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
     with open(infile,'r') as fd:
@@ -433,7 +449,6 @@ def main():
 
     # encrypt
     elif opts.action=='c':
-        ensure_infile_specified(opts)
         if opts.recipient or opts.self:
             ensure_self_specified(opts)
             ensure_recipient_specified(opts)
@@ -441,11 +456,11 @@ def main():
                         outfile=opts.outfile,
                         recipient=opts.recipient,
                         self=opts.self,
+                        armor=opts.armor,
                         basedir=opts.basedir)
 
     # decrypt
     elif opts.action=='d':
-        ensure_infile_specified(opts)
         decrypt_handler(infile=opts.infile,
                         outfile=opts.outfile,
                         self=opts.self,
@@ -453,26 +468,24 @@ def main():
 
     # sign
     elif opts.action=='s':
-        ensure_infile_specified(opts)
         ensure_self_specified(opts)
         sign_handler(infile=opts.infile,
                      outfile=opts.outfile,
                      self=opts.self,
+                     armor=opts.armor,
                      basedir=opts.basedir)
 
     # verify
     elif opts.action=='v':
-        ensure_infile_specified(opts)
         verify_handler(infile=opts.infile,
-                     outfile=opts.outfile,
-                     basedir=opts.basedir)
+                       outfile=opts.outfile,
+                       basedir=opts.basedir)
 
     # key sign
     elif opts.action=='m':
         ensure_name_specified(opts)
         ensure_self_specified(opts)
-        keysign_handler(infile=opts.infile,
-                        name=opts.name,
+        keysign_handler(name=opts.name,
                         self=opts.self,
                         basedir=opts.basedir)
 
@@ -484,7 +497,6 @@ def main():
 
     # forward encrypt
     elif opts.action=='e':
-        ensure_infile_specified(opts)
         ensure_recipient_specified(opts)
         ensure_only_one_recipient(opts)
         # TODO could try to find out this automatically if non-ambiguous
@@ -493,11 +505,11 @@ def main():
                         outfile=opts.outfile,
                         recipient=opts.recipient[0],
                         self=opts.self,
+                        armor=opts.armor,
                         basedir=opts.basedir)
 
     # forward decrypt
     elif opts.action=='E':
-        ensure_infile_specified(opts)
         ensure_recipient_specified(opts)
         ensure_only_one_recipient(opts)
         # TODO could try to find out this automatically if non-ambiguous
@@ -515,11 +527,6 @@ def ensure_self_specified(opts):
 def ensure_name_specified(opts):
     if not opts.name:
         die("Error: need to specify a key to operate on using the --name param")
-
-def ensure_infile_specified(opts):
-    if not opts.infile:
-        die("Error: need to specify a file to "
-            "operate on using the --infile param")
 
 def ensure_recipient_specified(opts):
     if not opts.recipient:
