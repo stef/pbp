@@ -19,7 +19,7 @@
 
 import nacl, os
 from utils import b85encode
-import pbp
+import identity
 
 class ChainingContext(object):
     def __init__(self, me, peer, basedir):
@@ -47,7 +47,7 @@ class ChainingContext(object):
         if not os.path.exists(keyfname):
             return self
         if not self.me_id:
-            self.me_id = pbp.Identity(self.me, basedir=self.basedir)
+            self.me_id = identity.Identity(self.me, basedir=self.basedir)
         with open(keyfname,'r') as fd:
             nonce = fd.read(nacl.crypto_box_NONCEBYTES)
             plain =  nacl.crypto_box_open(fd.read(), nonce, self.me_id.cp, self.me_id.cs)
@@ -79,7 +79,7 @@ class ChainingContext(object):
                      self.in_k,
                      self.in_prev))
         if not self.me_id:
-            self.me_id = pbp.Identity(self.me, basedir=self.basedir)
+            self.me_id = identity.Identity(self.me, basedir=self.basedir)
         with open(fname,'w') as fd:
             fd.write(nonce)
             fd.write(nacl.crypto_box(ctx, nonce, self.me_id.cp, self.me_id.cs))
@@ -117,9 +117,9 @@ class ChainingContext(object):
             # encrypt using public key
             nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
             if not self.peer_id:
-                self.peer_id = pbp.Identity(self.peer, basedir=self.basedir)
+                self.peer_id = identity.Identity(self.peer, basedir=self.basedir)
             if not self.me_id:
-                self.me_id = pbp.Identity(self.me, basedir=self.basedir)
+                self.me_id = identity.Identity(self.me, basedir=self.basedir)
             cipher= nacl.crypto_box(plain, nonce, self.peer_id.cp, self.me_id.cs)
         else:
             # encrypt using chaining mode
@@ -133,9 +133,9 @@ class ChainingContext(object):
         if self.in_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             # use pk crypto to decrypt the packet
             if not self.peer_id:
-                self.peer_id = pbp.Identity(self.peer, basedir=self.basedir)
+                self.peer_id = identity.Identity(self.peer, basedir=self.basedir)
             if not self.me_id:
-                self.me_id = pbp.Identity(self.me, basedir=self.basedir)
+                self.me_id = identity.Identity(self.me, basedir=self.basedir)
             plain = nacl.crypto_box_open(cipher, nonce, self.peer_id.cp, self.me_id.cs)
         else:
             # decrypt using chained keys

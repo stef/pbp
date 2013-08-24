@@ -1,9 +1,10 @@
+
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from tempfile import mkdtemp
 from shutil import rmtree
-import unittest, pbp, os, re
+import unittest, pbp, os, re, identity
 
 NAME = "keyname"
 MESSAGE = "Hello, world"
@@ -27,16 +28,16 @@ class TestPBP(unittest.TestCase):
         self.assertTrue(repr(i).startswith("name: " + NAME))
 
     def test_getpkeys(self):
-        self.assertEquals(list(pbp.getpkeys(basedir=self.pbp_path)), [])
+        self.assertEquals(list(identity.get_public_keys(basedir=self.pbp_path)), [])
         i = self.gen_key()
-        pkeys = list(pbp.getpkeys(basedir=self.pbp_path))
+        pkeys = list(identity.get_public_keys(basedir=self.pbp_path))
         self.assertEquals(len(pkeys), 1)
         # TODO add public key and query again
 
     def test_getskeys(self):
-        self.assertEquals(list(pbp.getskeys(basedir=self.pbp_path)), [])
+        self.assertEquals(list(identity.get_secret_keys(basedir=self.pbp_path)), [])
         i = self.gen_key()
-        skeys = list(pbp.getskeys(basedir=self.pbp_path))
+        skeys = list(identity.get_secret_keys(basedir=self.pbp_path))
         self.assertEquals(len(skeys), 1)
         # TODO why doesn't it match: self.assertEquals(skeys, [i])
 
@@ -83,40 +84,40 @@ class TestPBP(unittest.TestCase):
     def test_encrypt_recipient(self):
         self_key = self.gen_key()
         rcpt_key = self.gen_key()
-        encrypted = pbp.encrypt(MESSAGE, recipients=[rcpt_key], self=self_key)
+        encrypted = self_key.encrypt(MESSAGE, recipients=[rcpt_key])
         for key in (rcpt_key, self_key):
-            decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path, self=key)
+            decrypted = rcpt_key.decrypt(encrypted)
             self.assertEquals(decrypted[1], MESSAGE)
 
     def test_encrypt_recipient_no_key(self):
         self_key = self.gen_key()
         rcpt_key = self.gen_key()
         other_key = self.gen_key()
-        encrypted = pbp.encrypt(MESSAGE, recipients=[rcpt_key], self=self_key)
+        encrypted = self_key.encrypt(MESSAGE, recipients=[rcpt_key])
         with self.assertRaises(ValueError):
-            pbp.decrypt(encrypted, basedir=self.pbp_path, self=other_key)
+            other_key.decrypt(encrypted)
 
     def test_sign_fail(self):
         self_key = self.gen_key()
-        signed = pbp.sign(MESSAGE, self=self_key)
+        signed = self_key.sign(MESSAGE)
         malformed = ''.join(chr(ord(c) ^ 42) for c in signed)
-        self.assertTrue(pbp.verify(malformed, basedir=self.pbp_path) is None)
+        self.assertTrue(identity.verify(malformed, basedir=self.pbp_path) is None)
 
     def test_sign_no_key(self):
         self_key = self.gen_key()
-        signed = pbp.sign(MESSAGE, self=self_key)
+        signed = self_key.sign(MESSAGE)
         rmtree(self.pbp_path)
         self.gen_key()
-        self.assertTrue(pbp.verify(signed, basedir=self.pbp_path) is None)
+        self.assertTrue(identity.verify(signed, basedir=self.pbp_path) is None)
 
     def test_sign(self):
         self_key = self.gen_key()
-        self.assertTrue(pbp.verify(pbp.sign(MESSAGE, self=self_key),
+        self.assertTrue(identity.verify(self_key.sign(MESSAGE),
             basedir=self.pbp_path) is not None)
 
     def test_sign_master(self):
         self_key = self.gen_key()
-        self.assertTrue(pbp.verify(pbp.sign(MESSAGE, self=self_key, master=True),
+        self.assertTrue(identity.verify(self_key.sign(MESSAGE, master=True),
             basedir=self.pbp_path, master=True) is not None)
 
     def tearDown(self):
@@ -124,7 +125,7 @@ class TestPBP(unittest.TestCase):
 
     def gen_key(self):
         self.numkeys += 1
-        return pbp.Identity(NAME + str(self.numkeys), basedir=self.pbp_path, create=True)
+        return identity.Identity(NAME + str(self.numkeys), basedir=self.pbp_path, create=True)
 
 if __name__ == '__main__':
     unittest.main()

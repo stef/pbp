@@ -3,7 +3,7 @@ import nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
 from utils import split_by_n, b85encode, b85decode
-import chaining
+import chaining, identity
 
 # TODO make processing buffered!
 
@@ -14,152 +14,6 @@ defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
 
 _prev_passphrase = ''
-
-class Identity(object):
-    def __init__(self, name, basedir=defaultbase, create=False, publicOnly=False):
-        """initializes the Identity from the keystore or creates one"""
-        self.name=name
-        self.publicOnly=publicOnly
-        self.basedir=os.path.expandvars(
-            os.path.expanduser(basedir))
-
-        if create:
-            if not os.path.exists(self.basedir):
-                for d in (get_pk_dir(self.basedir), get_sk_dir(self.basedir)):
-                    os.makedirs(d, stat.S_IREAD|stat.S_IWRITE|stat.S_IEXEC)
-            self.create()
-
-    def __getattr__(self,name):
-        if name in ['ms', 'mp', 'cs', 'cp',
-                    'ss', 'sp', 'created', 'valid']:
-            if name[1:]=='s' and self.publicOnly: return None
-            self.loadkey(name)
-            return getattr(self, name)
-
-    def keyid(self):
-        res = nacl.crypto_hash_sha256(''.join((self.created.isoformat(),
-                                                self.valid.isoformat(),
-                                                self.mp,
-                                                self.sp,
-                                                self.cp
-                                                )))[:16]
-        return ' '.join(split_by_n(binascii.b2a_hex(res).decode("ascii"), 4))
-
-    def create(self):
-        self.created = datetime.datetime.utcnow()
-        self.valid = datetime.datetime.utcnow() + datetime.timedelta(days=365)
-        self.mp, self.ms = nacl.crypto_sign_keypair()
-        self.sp, self.ss = nacl.crypto_sign_keypair()
-        self.cp, self.cs = nacl.crypto_box_keypair()
-        self.save()
-
-    def save(self):
-        # save secret master key
-        if self.ms:
-            self.savesecretekey("mk", self.ms)
-        # save secret sub-keys
-        if self.cs or self.ss:
-            self.savesecretekey("sk", self.ss+self.cs)
-        # save public keys
-        self.savepublickeys()
-
-    def __repr__(self):
-        return "name: %s\nkeyid: %s\nvalid: %s - %s\nmp: %s\nms: %s\n" \
-               "cp: %s\ncs: %s\nsp: %s\nss: %s\n" % (self.name,
-                                                     self.keyid(),
-                                                     self.created.isoformat(),
-                                                     self.valid.isoformat(),
-                                                     b85encode(self.mp),
-                                                     self.ms is not None,
-                                                     b85encode(self.cp),
-                                                     self.cs is not None,
-                                                     b85encode(self.sp),
-                                                     self.ss is not None)
-
-
-    def loadkey(self, type):
-        if type in ['mp','cp','sp', 'created', 'valid']:
-            with open(get_pk_filename(self.basedir, self.name), 'r') as fd:
-                tmp=fd.read()
-            mk=tmp[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
-            tmp = nacl.crypto_sign_open(tmp, mk)
-            if type == 'mp': self.mp=mk
-            i=nacl.crypto_sign_PUBLICKEYBYTES
-            if type == 'sp': self.sp=tmp[i:i+nacl.crypto_sign_PUBLICKEYBYTES]
-            i+=nacl.crypto_sign_PUBLICKEYBYTES
-            if type == 'cp': self.cp=tmp[i:i+nacl.crypto_box_PUBLICKEYBYTES]
-            i+=nacl.crypto_box_PUBLICKEYBYTES
-            self.created = parse_isodatetime(tmp[i:i + 32])
-            self.valid = parse_isodatetime(tmp[i + 32:i + 64])
-
-        elif type in ['cs', 'ss']:
-            tmp = get_sk_filename(self.basedir, self.name)
-            if os.path.exists(tmp):
-                tmp = self.decrypt_with_user_pw(tmp, 'subkeys')
-                if type == 'ss': self.ss = tmp[:nacl.crypto_sign_SECRETKEYBYTES]
-                if type == 'cs': self.cs = tmp[nacl.crypto_sign_SECRETKEYBYTES:]
-
-        elif type == 'ms':
-            tmp = get_sk_filename(self.basedir, self.name, ext='mk')
-            if os.path.exists(tmp):
-                self.ms = self.decrypt_with_user_pw(tmp, 'master key')
-
-    def decrypt_with_user_pw(self, filename, pw_for):
-        with file(filename) as fd:
-            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            prompt = 'Passphrase for decrypting {0} for {1}: '.format(pw_for, self.name)
-            k = scrypt.hash(getpass.getpass(prompt), scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-            return nacl.crypto_secretbox_open(fd.read(), nonce, k)
-
-    def savepublickeys(self):
-        with open(get_pk_filename(self.basedir, self.name), 'w') as fd:
-            dates='{:<32}{:<32}'.format(self.created.isoformat(), self.valid.isoformat())
-            fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates+self.name, self.ms))
-
-    def savesecretekey(self, ext, key):
-        fname = get_sk_filename(self.basedir, self.name, ext)
-        k = getkey(nacl.crypto_secretbox_KEYBYTES,
-                   empty=True,
-                   text='Master' if ext == 'mk' else 'Subkey')
-        nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-        with open(fname,'w') as fd:
-            fd.write(nonce)
-            fd.write(nacl.crypto_secretbox(key, nonce, k))
-
-def parse_isodatetime(value):
-    return datetime.datetime.strptime(value.strip(), "%Y-%m-%dT%H:%M:%S.%f")
-
-def getpkeys(basedir=defaultbase):
-    basedir=os.path.expandvars(os.path.expanduser(basedir))
-    pk_dir = get_pk_dir(basedir)
-    if not os.path.exists(pk_dir):
-        return
-    for root, ext in imap(os.path.splitext, os.listdir(pk_dir)):
-        if ext == '.pk':
-            yield Identity(root, publicOnly=True, basedir=basedir)
-
-def getskeys(basedir=defaultbase):
-    basedir=os.path.expandvars(os.path.expanduser(basedir))
-    seen = set()
-    sk_dir = get_sk_dir(basedir)
-    if not os.path.exists(sk_dir):
-        return
-    for root, ext in imap(os.path.splitext, os.listdir(sk_dir)):
-        if ext in ('.mk', '.sk') and root not in seen:
-            seen.add(root)
-            yield Identity(root, basedir=basedir)
-
-def get_sk_filename(basedir, name, ext='sk'):
-    return os.path.join(get_sk_dir(basedir), name + '.' + ext)
-
-def get_pk_filename(basedir, name):
-    return os.path.join(get_pk_dir(basedir), name + '.pk')
-
-def get_sk_dir(basedir):
-    return os.path.join(basedir, 'sk')
-
-def get_pk_dir(basedir):
-    return os.path.join(basedir, 'pk')
 
 def getkey(l, pwd='', empty=False, text=''):
     # queries the user for a passphrase if neccessary, and
@@ -180,58 +34,18 @@ def getkey(l, pwd='', empty=False, text=''):
         _prev_passphrase = pwd
         return scrypt.hash(pwd, scrypt_salt)[:l]
 
-def encrypt(msg, recipients=None, pwd=None, self=None, k=None):
-    # encrypts msg
-    if not recipients:
-        nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-        if not k: k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
-        return ('c', nonce, nacl.crypto_secretbox(msg, nonce, k))
-    sk = self.cs
-    mk = k or nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-    c=[]
-    for r in recipients:
-        nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
-        c.append((nonce, nacl.crypto_box(mk, nonce, r.cp, sk)))
+def encrypt(msg, pwd=None, k=None):
     nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-    return ('a', nonce, c, nacl.crypto_secretbox(msg, nonce, mk))
+    if not k: k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
+    return (nonce, nacl.crypto_secretbox(msg, nonce, k))
 
-def decrypt(pkt, self=None, pwd=None, basedir=None, k=None):
-    if pkt[0]=='c':
-        # symmetric
-        if not k:
-            k = get_decrypt_key(pwd)
-        return nacl.crypto_secretbox_open(pkt[2], pkt[1], k)
-
-    sk = self.cs
-    source = None
-    mk = None
-    for nonce, ck in pkt[2]:
-        for keys in getpkeys(basedir=basedir):
-            try:
-                mk = nacl.crypto_box_open(ck, nonce, keys.cp, sk)
-            except ValueError:
-                continue
-            source = keys.name
-            break
-        if source:
-            break
-    return source, nacl.crypto_secretbox_open(pkt[3], pkt[1], mk)
-
-def get_decrypt_key(pwd):
-    if not pwd:
-        pwd = getpass.getpass('Passphrase for decrypting: ')
-    return scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-
-def sign(msg, self, master=False):
-    signing_key = self.ms if master else self.ss
-    return nacl.crypto_sign(msg, signing_key)
-
-def verify(msg, basedir=defaultbase, master=False):
-    for keys in getpkeys(basedir=basedir):
-        try:
-            verifying_key = keys.mp if master else keys.sp
-            return keys.name, nacl.crypto_sign_open(msg, verifying_key)
-        except ValueError: pass
+def decrypt(pkt, pwd=None, basedir=None, k=None):
+    # symmetric
+    if not k:
+        if not pwd:
+            pwd = getpass.getpass('Passphrase for decrypting: ')
+        k =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+    return nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
     if not infile: infile = sys.stdin
@@ -241,13 +55,11 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     with file(output_filename, 'w') as fd:
         if recipient and self:
             # let's do public key encryption
-            type, nonce, r, cipher = encrypt(msg,
-                                             recipients=[Identity(x, basedir=basedir)
-                                                         for x
-                                                         in recipient],
-                                             self=Identity(self, basedir=basedir))
-            if type != 'a':
-                raise ValueError
+            me = identity.Identity(self, basedir=basedir)
+            nonce, r, cipher = me.encrypt(msg,
+                                          recipients=[identity.Identity(x, basedir=basedir)
+                                                      for x
+                                                      in recipient])
             fd.write(struct.pack("B", ASYM_CIPHER))
             fd.write(nonce)
             fd.write(struct.pack(">L", len(r)))
@@ -258,14 +70,11 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
             fd.write(cipher)
         else:
             # let's do symmetric crypto
-            type, nonce, cipher = encrypt(msg)
+            nonce, cipher = encrypt(msg)
             # until we pass a param to encrypt above, it will always be block cipher
-            if type == 'c':
-                fd.write(struct.pack("B", BLOCK_CIPHER))
-                fd.write(nonce)
-                fd.write(cipher)
-            else:
-                raise ValueError
+            fd.write(struct.pack("B", BLOCK_CIPHER))
+            fd.write(nonce)
+            fd.write(cipher)
 
 def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     if not infile: infile = sys.stdin
@@ -283,12 +92,10 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
                 rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
                 ct = read_prefixed_byte_length(fd)
                 r.append((rnonce,ct))
-            sender, msg = decrypt(('a',
-                                   nonce,
-                                   r,
-                                   fd.read()),
-                                  basedir=basedir,
-                                  self=Identity(self, basedir=basedir)) or ('', 'decryption failed')
+            me = identity.Identity(self, basedir=basedir)
+            sender, msg = me.decrypt((nonce,
+                                      r,
+                                      fd.read())) or ('', 'decryption failed')
             if sender:
                 if not outfile:
                     print msg
@@ -303,7 +110,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         # sym
         elif type == BLOCK_CIPHER:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            msg = decrypt(('c', nonce, fd.read()))
+            msg = decrypt((nonce, fd.read()))
 
         if len(msg):
             if not outfile:
@@ -318,7 +125,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     if not infile: infile = sys.stdin
     with open(infile,'r') as fd:
         data = fd.read()
-    signed = sign(data, self=Identity(self, basedir=basedir))
+    signed = identity.Identity(self, basedir=basedir).sign(data)
     if armor:
         sig = signed[:nacl.crypto_sign_BYTES]
         signed = "nacl-%s\n%s" % (b85encode(sig),
@@ -336,7 +143,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     if data.startswith('nacl-'):
         tmp = data.split('\n', 1)
         data = "%s%s" % (b85decode(tmp[0][5:]),tmp[1])
-    sender, msg = verify(data, basedir=basedir) or ('', 'verification failed')
+    sender, msg = identity.verify(data, basedir=basedir) or ('', 'verification failed')
     if len(sender)>0:
         if outfile:
             with open(outfile,'w') as fd:
@@ -348,17 +155,15 @@ def verify_handler(infile=None, outfile=None, basedir=None):
         print >>sys.stderr, msg
 
 def keysign_handler(name=None, self=None, basedir=None):
-    fname = get_pk_filename(basedir, name)
+    fname = identity.get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         data = fd.read()
     with open(fname+'.sig','a') as fd:
-        sig = sign(data,
-                   self=Identity(self, basedir=basedir),
-                   master=True)
+        sig = identity.Identity(self, basedir=basedir).sign(data, master=True)
         fd.write(sig[:32]+sig[-32:])
 
 def keycheck_handler(name=None, basedir=None):
-    fname = get_pk_filename(basedir, name)
+    fname = identity.get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         pk = fd.read()
     sigs=[]
@@ -366,9 +171,9 @@ def keycheck_handler(name=None, basedir=None):
         sigdat=fd.read()
     i=0
     while i<len(sigdat)/64:
-        res = verify(sigdat[i*64:i*64+32]+pk+sigdat[i*64+32:i*64+64],
-                     basedir=basedir,
-                     master=True)
+        res = identity.verify(sigdat[i*64:i*64+32]+pk+sigdat[i*64+32:i*64+64],
+                              basedir=basedir,
+                              master=True)
         if res:
             sigs.append(res[0])
         i+=1
@@ -433,7 +238,7 @@ def main():
     # Generate key
     if opts.action=='g':
         ensure_name_specified(opts)
-        Identity(opts.name, create=True, basedir=opts.basedir)
+        identity.Identity(opts.name, create=True, basedir=opts.basedir)
 
     # list public keys
     elif opts.action=='l':
