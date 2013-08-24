@@ -160,7 +160,7 @@ def keysign_handler(name=None, self=None, basedir=None):
         data = fd.read()
     with open(fname+'.sig','a') as fd:
         sig = identity.Identity(self, basedir=basedir).sign(data, master=True)
-        fd.write(sig[:32]+sig[-32:])
+        fd.write(sig[:nacl.crypto_sign_BYTES])
 
 def export_handler(self, basedir=None):
     keys = identity.Identity(self, basedir=basedir)
