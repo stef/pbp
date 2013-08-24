@@ -257,7 +257,7 @@ def main():
     parser.add_argument('--basedir',    '-b', '--base-dir', help="designates a recipient for public key encryption", default=defaultbase)
     parser.add_argument('--self',       '-S', help="sets your own key")
     parser.add_argument('--infile',     '-i', help="file to operate on")
-    parser.add_argument('--armor',      '-a', action='store_true', help="ascii armors the output [TODO]")
+    parser.add_argument('--armor',      '-a', action='store_true', help="ascii armors the output")
     parser.add_argument('--outfile',    '-o', help="file to output to")
     opts=parser.parse_args()
 
