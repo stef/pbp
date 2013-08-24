@@ -33,7 +33,7 @@ cd ..
 rm -rf libsodium-* || exit 1
 
 virtualenv env || exit 1
-source env/bin/activate
+. env/bin/activate
 
 pip install -r deps.txt || exit 1
 
