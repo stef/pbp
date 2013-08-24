@@ -162,6 +162,31 @@ def keysign_handler(name=None, self=None, basedir=None):
         sig = identity.Identity(self, basedir=basedir).sign(data, master=True)
         fd.write(sig[:32]+sig[-32:])
 
+def export_handler(self, basedir=None):
+    keys = identity.Identity(self, basedir=basedir)
+    pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
+    print b85encode(pkt)
+
+def import_handler(infile=None, basedir=None):
+    if not infile:
+        b85 = sys.stdin.readline().strip()
+    else:
+        with file(infile) as fd:
+            b85 = fd.readline().strip()
+    pkt = b85decode(b85)
+    mp = pkt[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
+    keys = nacl.crypto_sign_open(pkt, mp)
+    if not keys:
+        die("invalid key")
+    name = keys[nacl.crypto_sign_PUBLICKEYBYTES*3:]
+    peer = identity.Identity(name, basedir=basedir)
+    peer.mp = mp
+    peer.cp = keys[nacl.crypto_sign_PUBLICKEYBYTES:nacl.crypto_sign_PUBLICKEYBYTES*2]
+    peer.sp = keys[nacl.crypto_sign_PUBLICKEYBYTES*2:nacl.crypto_sign_PUBLICKEYBYTES*3]
+    # TODO check if key exists, then ask for confirmation of pk overwrite
+    peer.save()
+    print 'Success: imported public keys for', name
+
 def keycheck_handler(name=None, basedir=None):
     fname = identity.get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
@@ -221,6 +246,8 @@ def main():
     group.add_argument('--verify',      '-v',  dest='action', action='store_const', const='v',help="verifies stdin")
     group.add_argument('--list',        '-l',  dest='action', action='store_const', const='l',help="lists public keys")
     group.add_argument('--list-secret', '-L',  dest='action', action='store_const', const='L',help="Lists secret keys")
+    group.add_argument('--export-key',  '-x',  dest='action', action='store_const', const='x',help="export public key")
+    group.add_argument('--import-key',  '-X',  dest='action', action='store_const', const='X',help="import public key")
     group.add_argument('--check-sigs',  '-C',  dest='action', action='store_const', const='C',help="lists all known sigs on a public key")
     group.add_argument('--fcrypt',      '-e',  dest='action', action='store_const', const='e',help="encrypts a message using PFS to a peer")
     group.add_argument('--fdecrypt',    '-E',  dest='action', action='store_const', const='E',help="decrypts a message using PFS to a peer")
@@ -299,6 +326,16 @@ def main():
         ensure_name_specified(opts)
         keycheck_handler(name=opts.name,
                          basedir=opts.basedir)
+
+    # export public key
+    elif opts.action=='x':
+        ensure_self_specified(opts)
+        export_handler(opts.self,
+                       basedir=opts.basedir)
+    # import public key
+    elif opts.action=='X':
+        import_handler(infile=opts.infile,
+                       basedir=opts.basedir)
 
     # forward encrypt
     elif opts.action=='e':
