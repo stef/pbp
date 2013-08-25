@@ -16,30 +16,47 @@ crypto_sign_PUBLICKEYBYTES = sodium.lib.crypto_sign_PUBLICKEYBYTES
 crypto_sign_SECRETKEYBYTES = sodium.lib.crypto_sign_SECRETKEYBYTES
 crypto_stream_KEYBYTES = sodium.lib.crypto_stream_KEYBYTES
 crypto_stream_NONCEBYTES = sodium.lib.crypto_stream_NONCEBYTES
-crypto_hash_BYTES = sodium.lib.crypto_hash_BYTES
+crypto_generichash_BYTES = sodium.lib.crypto_generichash_BYTES
 crypto_scalarmult_curve25519_BYTES = sodium.lib.crypto_scalarmult_curve25519_BYTES
 crypto_scalarmult_BYTES = sodium.lib.crypto_scalarmult_curve25519_BYTES
 crypto_sign_BYTES = sodium.lib.crypto_sign_BYTES
 
 def crypto_scalarmult_curve25519(n,p):
-    buf = sodium.ffi.new("unsigned char[]", crypto_hash_BYTES)
+    buf = sodium.ffi.new("unsigned char[]", crypto_scalarmult_BYTES)
     sodium.lib.crypto_scalarmult_curve25519(buf, n, p)
     return sodium.ffi.buffer(buf, crypto_scalarmult_BYTES)[:]
 
 def crypto_scalarmult_curve25519_base(n):
-    buf = sodium.ffi.new("unsigned char[]", crypto_hash_BYTES)
+    buf = sodium.ffi.new("unsigned char[]", crypto_scalarmult_BYTES)
     sodium.lib.crypto_scalarmult_curve25519_base(buf, n)
     return sodium.ffi.buffer(buf, crypto_scalarmult_BYTES)[:]
 
-def crypto_hash_sha256(m):
-    buf = sodium.ffi.new("unsigned char[]", crypto_hash_BYTES)
-    sodium.lib.crypto_hash_sha256(buf, m, len(m))
-    return sodium.ffi.buffer(buf, crypto_hash_BYTES)[:]
+def crypto_generichash(m, k='', outlen=crypto_generichash_BYTES):
+    # FIXME returns different result than the 3-step procedure used as a workaround
+    #buf = sodium.ffi.new("unsigned char[]", outlen)
+    #sodium.lib.crypto_generichash(buf, len(buf), m, len(m), k, len(k))
+    #return sodium.ffi.buffer(buf, crypto_generichash_BYTES)[:]
+    state = crypto_generichash_init(k=k, outlen=outlen)
+    state = crypto_generichash_update(state, m)
+    return crypto_generichash_final(state)
 
-def crypto_hash_sha512(m):
-    buf = sodium.ffi.new("unsigned char[]", crypto_hash_BYTES)
-    sodium.lib.crypto_hash_sha512(buf, m, len(m))
-    return sodium.ffi.buffer(buf, crypto_hash_BYTES)[:]
+#crypto_generichash_init(crypto_generichash_state *state, const unsigned char *key, const size_t keylen, const size_t outlen);
+def crypto_generichash_init(outlen=crypto_generichash_BYTES, k=''):
+    buf = sodium.ffi.new("crypto_generichash_state*")
+    sodium.lib.crypto_generichash_init(buf, k, len(k), outlen)
+    return buf
+
+#crypto_generichash_update(crypto_generichash_state *state, const unsigned char *in, unsigned long long inlen);
+def crypto_generichash_update(state, m):
+    buf = sodium.ffi.new("unsigned char[]", len(m))
+    sodium.lib.crypto_generichash_update(state, buf, len(m))
+    return state
+
+#crypto_generichash_final(crypto_generichash_state *state, unsigned char *out, const size_t outlen);
+def crypto_generichash_final(state, outlen=crypto_generichash_BYTES):
+    buf = sodium.ffi.new("unsigned char[]", outlen)
+    sodium.lib.crypto_generichash_final(state, buf, outlen )
+    return sodium.ffi.buffer(buf, outlen)[:]
 
 def randombytes(l):
     buf = sodium.ffi.new("unsigned char[]", l)
@@ -113,6 +130,12 @@ def crypto_sign_open(sm, pk):
     return sodium.ffi.buffer(msg, msglen[0])[:]
 
 def test():
+    from utils import b85encode
+    print b85encode(crypto_generichash('howdy'))
+    state = crypto_generichash_init()
+    state = crypto_generichash_update(state, 'howdy')
+    print b85encode(crypto_generichash_final(state))
+
     pk, sk = crypto_box_keypair()
     n = randombytes(crypto_box_NONCEBYTES)
     c = crypto_box("howdy", n, pk, sk)
@@ -122,9 +145,6 @@ def test():
     n = randombytes(crypto_secretbox_NONCEBYTES)
     c = crypto_secretbox("howdy", n, k)
     print crypto_secretbox_open(c, n, k)
-
-    print repr(crypto_hash_sha512('howdy'))
-    print repr(crypto_hash_sha256('howdy'))
 
     s = crypto_scalarmult_curve25519_base(randombytes(crypto_scalarmult_BYTES))
     r = crypto_scalarmult_curve25519_base(randombytes(crypto_scalarmult_BYTES))

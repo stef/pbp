@@ -82,13 +82,26 @@ ffi.cdef(
 
     # Hashing
     """
-        static const int crypto_hash_BYTES;
-        static const int crypto_hash_sha256_BYTES;
-        static const int crypto_hash_sha512_BYTES;
+        static const int crypto_generichash_BYTES;
+        static const int crypto_generichash_BYTES_MIN;
+        static const int crypto_generichash_KEYBYTES;
+        static const int crypto_generichash_KEYBYTES_MIN;
+        static const int crypto_generichash_KEYBYTES_MAX;
+        static const int crypto_generichash_BLOCKBYTES;
 
-        int crypto_hash(unsigned char *out, const unsigned char *in, unsigned long long inlen);
-        int crypto_hash_sha256(unsigned char *out, const unsigned char *in, unsigned long long inlen);
-        int crypto_hash_sha512(unsigned char *out, const unsigned char *in, unsigned long long inlen);
+        typedef struct {
+            uint64_t h[8];
+            uint64_t t[2];
+            uint64_t f[2];
+            uint8_t  buf[256];
+            size_t   buflen;
+            uint8_t  last_node;
+            ...;
+        }  crypto_generichash_state;
+        int crypto_generichash(unsigned char *out, size_t outlen, const unsigned char *in, unsigned long long inlen, const unsigned char *key, size_t keylen);
+        int crypto_generichash_update(crypto_generichash_state *state, const unsigned char *in, unsigned long long inlen);
+        int crypto_generichash_final(crypto_generichash_state *state, unsigned char *out, const size_t outlen);
+        int crypto_generichash_init(crypto_generichash_state *state, const unsigned char *key, const size_t keylen, const size_t outlen);
     """
 
     # Secure Random
@@ -154,9 +167,7 @@ lib.crypto_box_afternm = wrap_nacl_function(lib.crypto_box_afternm)
 lib.crypto_box_open_afternm = wrap_nacl_function(lib.crypto_box_open_afternm)
 lib.crypto_box_beforenm = wrap_nacl_function(lib.crypto_box_beforenm)
 
-lib.crypto_hash = wrap_nacl_function(lib.crypto_hash)
-lib.crypto_hash_sha256 = wrap_nacl_function(lib.crypto_hash_sha256)
-lib.crypto_hash_sha512 = wrap_nacl_function(lib.crypto_hash_sha512)
+lib.crypto_hash = wrap_nacl_function(lib.crypto_generichash)
 
 lib.crypto_scalarmult_curve25519_base = wrap_nacl_function(lib.crypto_scalarmult_curve25519_base)
 lib.crypto_scalarmult_curve25519 = wrap_nacl_function(lib.crypto_scalarmult_curve25519)
@@ -165,3 +176,8 @@ lib.randombytes = wrap_nacl_function(lib.randombytes)
 
 lib.crypto_stream_xor = wrap_nacl_function(lib.crypto_stream_xor)
 lib.crypto_stream = wrap_nacl_function(lib.crypto_stream)
+
+lib.crypto_generichash = wrap_nacl_function(lib.crypto_generichash)
+lib.crypto_generichash_update =  wrap_nacl_function(lib.crypto_generichash_update)
+lib.crypto_generichash_final = wrap_nacl_function(lib.crypto_generichash_final)
+lib.crypto_generichash_init = wrap_nacl_function(lib.crypto_generichash_init)

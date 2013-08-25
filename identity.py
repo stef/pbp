@@ -27,7 +27,7 @@ class Identity(object):
             return getattr(self, name)
 
     def keyid(self):
-        res = nacl.crypto_hash_sha256(''.join((self.created.isoformat(),
+        res = nacl.crypto_generichash(''.join((self.created.isoformat(),
                                                 self.valid.isoformat(),
                                                 self.mp,
                                                 self.sp,
