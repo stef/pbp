@@ -337,6 +337,27 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     if infile: fd.close()
     if outfile: outfd.close()
 
+def dh1_handler():
+    exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
+    public = nacl.crypto_scalarmult_curve25519_base(exp)
+    print "public component", b85encode(public)
+    print "secret exponent", b85encode(exp)
+    clearmem(exp)
+
+def dh2_handler(peer):
+    exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
+    public = nacl.crypto_scalarmult_curve25519_base(exp)
+    print "public component", b85encode(public)
+    secret = nacl.crypto_scalarmult_curve25519(exp, b85decode(peer))
+    print "shared secret", b85encode(secret)
+    clearmem(secret)
+    clearmem(exp)
+
+def dh3_handler(public, exp):
+    secret = nacl.crypto_scalarmult_curve25519(b85decode(exp), b85decode(public))
+    print "shared secret", b85encode(secret)
+    clearmem(secret)
+
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
     group = parser.add_mutually_exclusive_group()
@@ -353,11 +374,16 @@ def main():
     group.add_argument('--check-sigs',  '-C',  dest='action', action='store_const', const='C',help="lists all known sigs on a public key")
     group.add_argument('--fcrypt',      '-e',  dest='action', action='store_const', const='e',help="encrypts a message using PFS to a peer")
     group.add_argument('--fdecrypt',    '-E',  dest='action', action='store_const', const='E',help="decrypts a message using PFS to a peer")
+    group.add_argument('--dh-start',    '-D1', dest='action', action='store_const', const='d1',help="initiates an ECDH key exchange")
+    group.add_argument('--dh-respond',  '-D2', dest='action', action='store_const', const='d2',help="responds to an ECDH key request")
+    group.add_argument('--dh-end',      '-D3', dest='action', action='store_const', const='d3',help="finalizes an ECDH key exchange")
 
     parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
     parser.add_argument('--basedir',    '-b', '--base-dir', help="designates a recipient for public key encryption", default=defaultbase)
     parser.add_argument('--self',       '-S', help="sets your own key")
+    parser.add_argument('--dh-param',   '-Dp',help="public parameter for ECDH key exchange")
+    parser.add_argument('--dh-exp',     '-De',help="public parameter for ECDH key exchange")
     parser.add_argument('--infile',     '-i', help="file to operate on")
     parser.add_argument('--armor',      '-a', action='store_true', help="ascii armors the output")
     parser.add_argument('--outfile',    '-o', help="file to output to")
@@ -462,6 +488,18 @@ def main():
                             recipient=opts.recipient[0],
                             self=opts.self,
                             basedir=opts.basedir)
+    # start ECDH
+    elif opts.action=='d1':
+        dh1_handler()
+    # receive ECDH
+    elif opts.action=='d2':
+        ensure_dhparam_specified(opts)
+        dh2_handler(opts.dh_param)
+    # finish ECDH
+    elif opts.action=='d3':
+        ensure_dhparam_specified(opts)
+        ensure_dhexp_specified(opts)
+        dh3_handler(opts.dh_param, opts.dh_exp)
 
 def ensure_self_specified(opts):
     if not opts.self:
@@ -480,12 +518,19 @@ def ensure_only_one_recipient(opts):
     if len(opts.recipient) > 1:
         die("Error: you can only PFS decrypt from one recipient.")
 
+def ensure_dhparam_specified(opts):
+    if not opts.dh_param:
+        die("Error: need to specify the ECDH public parameter using the -Dp param")
+
+def ensure_dhexp_specified(opts):
+    if not opts.dh_exp:
+        die("Error: need to specify your secret ECDH exponent using the -De param")
+
 def die(msg):
     print >>sys.stderr, msg
     sys.exit(1)
 
 if __name__ == '__main__':
-    #__test()
     lockmem()
     main()
     clearmem(_prev_passphrase)
