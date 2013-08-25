@@ -5,8 +5,6 @@ from itertools import imap
 from utils import split_by_n, b85encode, b85decode
 import chaining, identity
 
-# TODO make processing buffered!
-
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
 SIGPREFIX = '\nnacl-'
@@ -49,84 +47,95 @@ def decrypt(pkt, pwd=None, basedir=None, k=None):
         k =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
     return nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
 
-def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
-    if not infile: msg = sys.stdin.read()
+def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
+    if not infile or infile == '-':
+        fd = sys.stdin
     else:
-        with open(infile,'r') as fd:
-            # TODO buffered
-            msg=fd.read()
-    output_filename = outfile if outfile else infile + '.pbp'
-    with file(output_filename, 'w') as fd:
-        if recipient and self:
-            # let's do public key encryption
-            me = identity.Identity(self, basedir=basedir)
-            nonce, r, cipher = me.encrypt(msg,
-                                          recipients=[identity.Identity(x, basedir=basedir)
-                                                      for x
-                                                      in recipient])
-            fd.write(struct.pack("B", ASYM_CIPHER))
-            fd.write(nonce)
-            fd.write(struct.pack(">L", len(r)))
-            for rnonce, ct in r:
-                fd.write(rnonce)
-                fd.write(struct.pack("B", len(ct)))
-                fd.write(ct)
-            fd.write(cipher)
-        else:
-            # let's do symmetric crypto
-            nonce, cipher = encrypt(msg)
-            # until we pass a param to encrypt above, it will always be block cipher
-            fd.write(struct.pack("B", BLOCK_CIPHER))
-            fd.write(nonce)
-            fd.write(cipher)
+        fd = open(infile,'r')
+
+    if outfile == '-':
+        outfd = sys.stdout
+    else:
+        outfd = open(outfile or infile+'.pbp','w')
+
+    if recipient and self:
+        # let's do public key encryption
+        key = nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+        me = identity.Identity(self, basedir=basedir)
+        peerkeys = me.keyencrypt(key, recipients=[identity.Identity(x, basedir=basedir)
+                                                  for x
+                                                  in recipient])
+        outfd.write(struct.pack("B", ASYM_CIPHER))
+        outfd.write(struct.pack(">L", len(peerkeys)))
+        for rnonce, ct in peerkeys:
+            outfd.write(rnonce)
+            outfd.write(struct.pack("B", len(ct)))
+            outfd.write(ct)
+    else:
+        # let's do symmetric crypto
+        key = getkey(nacl.crypto_secretbox_KEYBYTES)
+        outfd.write(struct.pack("B", BLOCK_CIPHER))
+
+    buf = fd.read(BLOCK_SIZE)
+    while len(buf)>0:
+        nonce, cipher = encrypt(buf, k=key)
+        outfd.write(nonce)
+        outfd.write(cipher)
+        buf = fd.read(BLOCK_SIZE)
+
+    if infile != sys.stdin: fd.close()
+    if outfile != sys.stdout: outfd.close()
 
 def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
-    if not infile: infile = sys.stdin
-    # TODO FIXME with (open(infile,'r') if infile else sys.stdin) as fd:
-    with open(infile,'r') as fd:
-        type=struct.unpack('B',fd.read(1))[0]
-        # asym
-        if type == ASYM_CIPHER:
-            if not self:
-                print >>sys.stderr, "Error: need to specify your own key using the --self param"
-                raise ValueError
-            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            size = struct.unpack('>L',fd.read(4))[0]
-            r = []
-            for _ in xrange(size):
-                rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
-                ct = fd.read(struct.unpack('B', fd.read(1))[0])
-                r.append((rnonce,ct))
-            me = identity.Identity(self, basedir=basedir)
-            # TODO buffered
-            sender, msg = me.decrypt((nonce,
-                                      r,
-                                      fd.read())) or ('', 'decryption failed')
-            if sender:
-                if not outfile:
-                    print msg
-                else:
-                    with open(outfile,'w') as fd:
-                        fd.write(msg)
-                print >>sys.stderr, 'good message from', sender
-            else:
-                print >>sys.stderr, msg
-            return
+    if not infile or infile == '-':
+        fd = sys.stdin
+    else:
+        fd = open(infile,'r')
+    if not outfile or outfile == '-':
+        outfd = sys.stdout
+    else:
+        outfd = open(outfile,'w')
 
-        # sym
-        elif type == BLOCK_CIPHER:
-            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-            # TODO buffered
-            msg = decrypt((nonce, fd.read()))
-
-        if len(msg):
-            if not outfile:
-                print msg
-            else:
-                with open(outfile,'w') as fd:
-                    fd.write(msg)
+    key = None
+    type=struct.unpack('B',fd.read(1))[0]
+    # asym
+    if type == ASYM_CIPHER:
+        if not self:
+            print >>sys.stderr, "Error: need to specify your own key using the --self param"
+            raise ValueError
+        size = struct.unpack('>L',fd.read(4))[0]
+        r = []
+        for _ in xrange(size):
+            rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
+            ct = fd.read(struct.unpack('B', fd.read(1))[0])
+            r.append((rnonce,ct))
+        me = identity.Identity(self, basedir=basedir)
+        sender, key = me.keydecrypt(r)
+        if sender:
+            print >>sys.stderr, 'good key from', sender
         else:
-            print >>sys.stderr,  'decryption failed'
+            print >>sys.stderr, 'decryption failed'
+    # sym
+    elif type == BLOCK_CIPHER:
+        pwd = getpass.getpass('Passphrase for decrypting: ')
+        key =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+    else:
+        print >>sys.stderr,  'decryption failed'
+
+    if key:
+        nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+        while len(nonce) == nacl.crypto_secretbox_NONCEBYTES:
+            buf = fd.read(BLOCK_SIZE)
+            if len(buf) == 0:
+                print >>sys.stderr, 'decryption failed'
+                break
+            outfd.write(decrypt((nonce, buf), k = key))
+            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+        if 0 < len(nonce) < nacl.crypto_secretbox_NONCEBYTES:
+            print >>sys.stderr, 'decryption failed'
+
+    if infile != sys.stdin: fd.close()
+    if outfile != sys.stdout: outfd.close()
 
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
     if not infile or infile == '-':
@@ -155,8 +164,8 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     else:
         outfd.write(sig)
 
-    if infile: fd.close()
-    outfd.close()
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
 
 def verify_handler(infile=None, outfile=None, basedir=None):
     if not infile or infile == '-':
@@ -199,8 +208,9 @@ def verify_handler(infile=None, outfile=None, basedir=None):
         print >>sys.stderr, "good message from", sender
     else:
         print >>sys.stderr, 'verification failed'
-    if infile: fd.close()
-    if outfile: outfd.close()
+
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
 
 def keysign_handler(name=None, self=None, basedir=None):
     fname = identity.get_pk_filename(basedir, name)
@@ -335,7 +345,6 @@ def main():
                         outfile=opts.outfile,
                         recipient=opts.recipient,
                         self=opts.self,
-                        armor=opts.armor,
                         basedir=opts.basedir)
 
     # decrypt
