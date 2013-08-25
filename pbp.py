@@ -267,30 +267,45 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     output_filename = outfile if outfile else infile + '.pbp'
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
-    # TODO buffered
-    with open(infile, 'r') as inp:
-        msg=inp.read()
+    inp = open(infile, 'r')
+    msg=inp.read(BLOCK_SIZE)
     cipher, nonce = ctx.send(msg)
-    with open(output_filename, 'w') as fd:
+    fd = open(output_filename, 'w')
+    while True:
         fd.write(nonce)
         fd.write(cipher)
+        msg=inp.read(BLOCK_SIZE)
+        if len(msg) == 0: break
+        cipher, nonce = ctx.encrypt(msg)
     ctx.save()
+    if not infile: inp.close()
+    fd.close()
 
 def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
-    if not infile: infile = sys.stdin
+    fd = sys.stdin if not infile else open(infile,'r')
+    outfd = sys.stdout if not outfile else open(outfile, 'w')
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
-    # TODO buffered
-    with open(infile,'r') as fd:
-        nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-        ct = fd.read()
-    msg = ctx.receive(ct,nonce)
-    if not outfile:
-        print msg
+    blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
+    if ctx.out_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
+        nonce = fd.read(nacl.crypto_box_NONCEBYTES)
     else:
-        with open(outfile, 'w') as fd:
-            fd.write(msg)
+        nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+    ct = fd.read(blocklen+16)
+    msg = ctx.receive(ct,nonce)
+    while True:
+        outfd.write(msg)
+        nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+        if len(nonce) == 0:
+            break
+        if len(nonce) != nacl.crypto_secretbox_NONCEBYTES:
+            print >>sys.stderr, 'decryption failed'
+            return
+        ct = fd.read(BLOCK_SIZE+16)
+        msg = ctx.decrypt(ct,nonce)
     ctx.save()
+    if infile: fd.close()
+    if outfile: outfd.close()
 
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
