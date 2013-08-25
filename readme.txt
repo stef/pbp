@@ -10,14 +10,14 @@
 # wget -O - https://raw.github.com/stef/pbp/master/readme.txt | sh -
 # to install pbp automatically
 # you possibly need to run (or an equivalent command)
-# sudo apt-get install git python-virtualenv gcc
+# sudo apt-get install git python-virtualenv gcc python-dev
 # to satisfy all basic dependencies
 
-# unfortunately all this is neccessary as nacl needs to be compiled as
-# a dependency.
+# this is neccessary as libsodium needs to be compiled as a
+# dependency.
 
 # (c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
-# v0.1 - experimental
+# v0.1.1 - experimental
 
 set -x
 git clone https://github.com/stef/pbp.git || exit 1
