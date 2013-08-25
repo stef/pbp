@@ -3,7 +3,7 @@ import pysodium as nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
 from utils import split_by_n, b85encode, b85decode, lockmem, clearmem
-import chaining, identity
+import chaining, publickey
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
@@ -76,8 +76,8 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     if recipient and self:
         # let's do public key encryption
         key = nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
-        me = identity.Identity(self, basedir=basedir)
-        peerkeys = me.keyencrypt(key, recipients=[identity.Identity(x, basedir=basedir)
+        me = publickey.Identity(self, basedir=basedir)
+        peerkeys = me.keyencrypt(key, recipients=[publickey.Identity(x, basedir=basedir)
                                                   for x
                                                   in recipient])
         me.clear()
@@ -126,7 +126,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
             rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
             ct = fd.read(struct.unpack('B', fd.read(1))[0])
             r.append((rnonce,ct))
-        me = identity.Identity(self, basedir=basedir)
+        me = publickey.Identity(self, basedir=basedir)
         me.clear()
         sender, key = me.keydecrypt(r)
         if sender:
@@ -175,7 +175,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
         outfd.write(block)
     hashsum = nacl.crypto_generichash_final(state)
 
-    me = identity.Identity(self, basedir=basedir)
+    me = publickey.Identity(self, basedir=basedir)
     # sign hashsum
     sig = me.sign(hashsum)[:nacl.crypto_sign_BYTES]
     me.clear()
@@ -225,7 +225,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
         block = next
     hashsum = nacl.crypto_generichash_final(state)
 
-    sender, hashsum1 = identity.verify(sig+hashsum, basedir=basedir) or ([], '')
+    sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
     if len(sender)>0 and hashsum == hashsum1:
         print >>sys.stderr, "good message from", sender
     else:
@@ -235,11 +235,11 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     if outfd != sys.stdout: outfd.close()
 
 def keysign_handler(name=None, self=None, basedir=None):
-    fname = identity.get_pk_filename(basedir, name)
+    fname = publickey.get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         data = fd.read()
     with open(fname+'.sig','a') as fd:
-        me = identity.Identity(self, basedir=basedir)
+        me = publickey.Identity(self, basedir=basedir)
         sig = me.sign(data, master=True)
         if not sig:
             print >>sys.stderr, 'signature failed'
@@ -247,7 +247,7 @@ def keysign_handler(name=None, self=None, basedir=None):
         fd.write(sig[:nacl.crypto_sign_BYTES])
 
 def keycheck_handler(name=None, basedir=None):
-    fname = identity.get_pk_filename(basedir, name)
+    fname = publickey.get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         pk = fd.read()
     sigs=[]
@@ -256,7 +256,7 @@ def keycheck_handler(name=None, basedir=None):
     i=0
     csb = nacl.crypto_sign_BYTES
     while i<len(sigdat)/64:
-        res = identity.verify(sigdat[i*csb:(i+1)*csb]+pk,
+        res = publickey.verify(sigdat[i*csb:(i+1)*csb]+pk,
                               basedir=basedir,
                               master=True)
         if res:
@@ -265,7 +265,7 @@ def keycheck_handler(name=None, basedir=None):
     print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
 
 def export_handler(self, basedir=None):
-    keys = identity.Identity(self, basedir=basedir)
+    keys = publickey.Identity(self, basedir=basedir)
     pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
     keys.clear()
     print b85encode(pkt)
@@ -282,7 +282,7 @@ def import_handler(infile=None, basedir=None):
     if not keys:
         die("invalid key")
     name = keys[nacl.crypto_sign_PUBLICKEYBYTES*3:]
-    peer = identity.Identity(name, basedir=basedir)
+    peer = publickey.Identity(name, basedir=basedir)
     peer.mp = mp
     peer.cp = keys[nacl.crypto_sign_PUBLICKEYBYTES:nacl.crypto_sign_PUBLICKEYBYTES*2]
     peer.sp = keys[nacl.crypto_sign_PUBLICKEYBYTES*2:nacl.crypto_sign_PUBLICKEYBYTES*3]
@@ -393,7 +393,7 @@ def main():
     # Generate key
     if opts.action=='g':
         ensure_name_specified(opts)
-        identity.Identity(opts.name, create=True, basedir=opts.basedir)
+        publickey.Identity(opts.name, create=True, basedir=opts.basedir)
 
     # list public keys
     elif opts.action=='l':

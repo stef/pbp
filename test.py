@@ -3,7 +3,7 @@
 
 from tempfile import mkdtemp
 from shutil import rmtree
-import unittest, pbp, os, re, identity
+import unittest, pbp, os, re, publickey
 
 NAME = "keyname"
 MESSAGE = "Hello, world"
@@ -27,16 +27,16 @@ class TestPBP(unittest.TestCase):
         self.assertTrue(repr(i).startswith("name: " + NAME))
 
     def test_getpkeys(self):
-        self.assertEquals(list(identity.get_public_keys(basedir=self.pbp_path)), [])
+        self.assertEquals(list(publickey.get_public_keys(basedir=self.pbp_path)), [])
         i = self.gen_key()
-        pkeys = list(identity.get_public_keys(basedir=self.pbp_path))
+        pkeys = list(publickey.get_public_keys(basedir=self.pbp_path))
         self.assertEquals(len(pkeys), 1)
         # TODO add public key and query again
 
     def test_getskeys(self):
-        self.assertEquals(list(identity.get_secret_keys(basedir=self.pbp_path)), [])
+        self.assertEquals(list(publickey.get_secret_keys(basedir=self.pbp_path)), [])
         i = self.gen_key()
-        skeys = list(identity.get_secret_keys(basedir=self.pbp_path))
+        skeys = list(publickey.get_secret_keys(basedir=self.pbp_path))
         self.assertEquals(len(skeys), 1)
         # self.assertEquals(skeys, [i]) doesn't it match:
         # because identity loads keys dynamicly
@@ -100,23 +100,23 @@ class TestPBP(unittest.TestCase):
         self_key = self.gen_key()
         signed = self_key.sign(MESSAGE)
         malformed = ''.join(chr(ord(c) ^ 42) for c in signed)
-        self.assertTrue(identity.verify(malformed, basedir=self.pbp_path) is None)
+        self.assertTrue(publickey.verify(malformed, basedir=self.pbp_path) is None)
 
     def test_sign_no_key(self):
         self_key = self.gen_key()
         signed = self_key.sign(MESSAGE)
         rmtree(self.pbp_path)
         self.gen_key()
-        self.assertTrue(identity.verify(signed, basedir=self.pbp_path) is None)
+        self.assertTrue(publickey.verify(signed, basedir=self.pbp_path) is None)
 
     def test_sign(self):
         self_key = self.gen_key()
-        self.assertTrue(identity.verify(self_key.sign(MESSAGE),
+        self.assertTrue(publickey.verify(self_key.sign(MESSAGE),
             basedir=self.pbp_path) is not None)
 
     def test_sign_master(self):
         self_key = self.gen_key()
-        self.assertTrue(identity.verify(self_key.sign(MESSAGE, master=True),
+        self.assertTrue(publickey.verify(self_key.sign(MESSAGE, master=True),
             basedir=self.pbp_path, master=True) is not None)
 
     def tearDown(self):
@@ -124,7 +124,7 @@ class TestPBP(unittest.TestCase):
 
     def gen_key(self):
         self.numkeys += 1
-        return identity.Identity(NAME + str(self.numkeys), basedir=self.pbp_path, create=True)
+        return publickey.Identity(NAME + str(self.numkeys), basedir=self.pbp_path, create=True)
 
 if __name__ == '__main__':
     unittest.main()
