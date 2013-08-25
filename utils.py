@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import struct
+import struct, ctypes, platform, sys
 
 def split_by_n( seq, n ):
     """A generator to divide a sequence into chunks of n units.
@@ -90,3 +90,24 @@ def b85decode(text):
         out = out[:-(5 - cl)]
 
     return out
+
+def clearmem(buf):
+    location = id(buf) + 20
+    size     = sys.getsizeof(buf) - 20
+
+    if platform.system() == 'Linux':
+        cleanse =  ctypes.CDLL("libssl.so").OPENSSL_cleanse
+    #elif platform.system() == 'Windows':
+    #    memset =  ctypes.cdll.msvcrt.memchr
+    cleanse(location, size)
+
+_MCL_CURRENT = 1
+_MCL_FUTURE = 2
+def lockmem():
+   try:
+     libc = ctypes.CDLL("libc.so.6")
+   except EnvironmentError, err:
+       print >>sys.stderr, "cannot lock memory"
+       return
+   if libc.mlockall(_MCL_CURRENT | _MCL_FUTURE):
+       print >>sys.stderr, "cannot lock memory"

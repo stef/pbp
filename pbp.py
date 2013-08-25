@@ -2,7 +2,7 @@
 import nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
-from utils import split_by_n, b85encode, b85decode
+from utils import split_by_n, b85encode, b85decode, lockmem, clearmem
 import chaining, identity
 
 ASYM_CIPHER = 5
@@ -19,8 +19,9 @@ def getkey(l, pwd='', empty=False, text=''):
     # queries the user twice for a passphrase if neccessary, and
     # returns a scrypted key of length l
     global _prev_passphrase
+    clearpwd = (pwd.strip()=='')
+    pwd2 = not pwd
     if not pwd:
-        pwd2 = not pwd
         if _prev_passphrase:
             print >>sys.stderr, "press enter to reuse the previous passphrase"
         while pwd != pwd2 or (not empty and not pwd.strip()):
@@ -30,23 +31,36 @@ def getkey(l, pwd='', empty=False, text=''):
             elif _prev_passphrase is not None:
                 pwd = _prev_passphrase
                 break
+    #if isinstance(pwd2, str):
+        #clearmem(pwd2)
     if pwd.strip():
         _prev_passphrase = pwd
-        return scrypt.hash(pwd, scrypt_salt)[:l]
+        key = scrypt.hash(pwd, scrypt_salt)[:l]
+        #if clearpwd: clearmem(pwd)
+        return key
 
 def encrypt(msg, pwd=None, k=None):
     # symmetric
     nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-    if not k: k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
-    return (nonce, nacl.crypto_secretbox(msg, nonce, k))
+    cleark = (k == None)
+    if not k:
+        k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
+    ciphertext = nacl.crypto_secretbox(msg, nonce, k)
+    if cleark: clearmem(k)
+    return (nonce, ciphertext)
 
 def decrypt(pkt, pwd=None, basedir=None, k=None):
     # symmetric
+    cleark = (pwd == None)
+    clearpwd = (k == None)
     if not k:
         if not pwd:
             pwd = getpass.getpass('Passphrase for decrypting: ')
         k =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-    return nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
+        if clearpwd: clearmem(pwd)
+    res = nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
+    if cleark: clearmem(k)
+    return res
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     if not infile or infile == '-':
@@ -66,6 +80,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         peerkeys = me.keyencrypt(key, recipients=[identity.Identity(x, basedir=basedir)
                                                   for x
                                                   in recipient])
+        me.clear()
         outfd.write(struct.pack("B", ASYM_CIPHER))
         outfd.write(struct.pack(">L", len(peerkeys)))
         for rnonce, ct in peerkeys:
@@ -83,6 +98,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         outfd.write(nonce)
         outfd.write(cipher)
         buf = fd.read(BLOCK_SIZE)
+    clearmem(key)
 
     if infile != sys.stdin: fd.close()
     if outfile != sys.stdout: outfd.close()
@@ -111,6 +127,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
             ct = fd.read(struct.unpack('B', fd.read(1))[0])
             r.append((rnonce,ct))
         me = identity.Identity(self, basedir=basedir)
+        me.clear()
         sender, key = me.keydecrypt(r)
         if sender:
             print >>sys.stderr, 'good key from', sender
@@ -120,6 +137,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     elif type == BLOCK_CIPHER:
         pwd = getpass.getpass('Passphrase for decrypting: ')
         key =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+        clearmem(pwd)
     else:
         print >>sys.stderr,  'decryption failed'
 
@@ -132,6 +150,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
                 break
             outfd.write(decrypt((nonce, buf), k = key))
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+        clearmem(key)
         if 0 < len(nonce) < nacl.crypto_secretbox_NONCEBYTES:
             print >>sys.stderr, 'decryption failed'
 
@@ -156,8 +175,10 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
         outfd.write(block)
     hashsum = nacl.crypto_generichash_final(state)
 
+    me = identity.Identity(self, basedir=basedir)
     # sign hashsum
-    sig = identity.Identity(self, basedir=basedir).sign(hashsum)[:nacl.crypto_sign_BYTES]
+    sig = me.sign(hashsum)[:nacl.crypto_sign_BYTES]
+    me.clear()
     if armor:
         signed = "%s%s" % (SIGPREFIX, b85encode(sig))
     if armor and not outfile:
@@ -218,12 +239,17 @@ def keysign_handler(name=None, self=None, basedir=None):
     with open(fname,'r') as fd:
         data = fd.read()
     with open(fname+'.sig','a') as fd:
-        sig = identity.Identity(self, basedir=basedir).sign(data, master=True)
+        me = identity.Identity(self, basedir=basedir)
+        sig = me.sign(data, master=True)
+        if not sig:
+            print >>sys.stderr, 'signature failed'
+        me.clear()
         fd.write(sig[:nacl.crypto_sign_BYTES])
 
 def export_handler(self, basedir=None):
     keys = identity.Identity(self, basedir=basedir)
     pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
+    keys.clear()
     print b85encode(pkt)
 
 def import_handler(infile=None, basedir=None):
@@ -254,8 +280,9 @@ def keycheck_handler(name=None, basedir=None):
     with open(fname+".sig",'r') as fd:
         sigdat=fd.read()
     i=0
+    csb = nacl.crypto_sign_BYTES
     while i<len(sigdat)/64:
-        res = identity.verify(sigdat[i*64:i*64+32]+pk+sigdat[i*64+32:i*64+64],
+        res = identity.verify(sigdat[i*csb:(i+1)*csb]+pk,
                               basedir=basedir,
                               master=True)
         if res:
@@ -279,6 +306,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
         if len(msg) == 0: break
         cipher, nonce = ctx.encrypt(msg)
     ctx.save()
+    ctx.clear()
     if not infile: inp.close()
     fd.close()
 
@@ -305,6 +333,7 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
         ct = fd.read(BLOCK_SIZE+16)
         msg = ctx.decrypt(ct,nonce)
     ctx.save()
+    ctx.clear()
     if infile: fd.close()
     if outfile: outfd.close()
 
@@ -457,4 +486,6 @@ def die(msg):
 
 if __name__ == '__main__':
     #__test()
+    lockmem()
     main()
+    clearmem(_prev_passphrase)

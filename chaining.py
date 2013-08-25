@@ -18,7 +18,7 @@
 # (C) 2013 by Stefan Marsiske, <s@ctrlc.hu>
 
 import nacl, os
-from utils import b85encode
+from utils import b85encode, clearmem
 import identity
 
 class ChainingContext(object):
@@ -157,6 +157,14 @@ class ChainingContext(object):
             dh2=plain[nacl.crypto_scalarmult_curve25519_BYTES:nacl.crypto_scalarmult_curve25519_BYTES*2]
             self.out_k = nacl.crypto_scalarmult_curve25519(self.e_out, dh2)
         return plain[nacl.crypto_scalarmult_curve25519_BYTES*2:]
+
+    def clear(self):
+        clearmem(self.e_in)
+        clearmem(self.e_out)
+        clearmem(self.out_k)
+        clearmem(self.in_k)
+        clearmem(self.in_prev)
+        self.me_id.clear()
 
 def test():
     alice = ChainingContext('alice','bob', 'test-pbp')

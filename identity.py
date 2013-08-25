@@ -2,7 +2,7 @@
 import nacl, scrypt # external dependencies
 import os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
-from utils import split_by_n, b85encode, b85decode
+from utils import split_by_n, b85encode, b85decode, clearmem
 import pbp
 
 class Identity(object):
@@ -148,6 +148,17 @@ class Identity(object):
     def sign(self, msg, master=False):
         signing_key = self.ms if master else self.ss
         return nacl.crypto_sign(msg, signing_key)
+
+    def clear(self):
+        if 'ms' in self.__dict__.keys():
+            clearmem(self.ms)
+            del self.ms
+        if 'ms' in self.__dict__.keys():
+            clearmem(self.cs)
+            del self.cs
+        if 'ms' in self.__dict__.keys():
+            clearmem(self.ss)
+            del self.ss
 
 def verify(msg, master=False, basedir=None):
     for keys in get_public_keys(basedir=basedir or pbp.defaultbase):
