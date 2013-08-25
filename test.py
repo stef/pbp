@@ -39,7 +39,8 @@ class TestPBP(unittest.TestCase):
         i = self.gen_key()
         skeys = list(identity.get_secret_keys(basedir=self.pbp_path))
         self.assertEquals(len(skeys), 1)
-        # TODO why doesn't it match: self.assertEquals(skeys, [i])
+        # self.assertEquals(skeys, [i]) doesn't it match:
+        # because identity loads keys dynamicly
 
     #def test_encrypt_sym_stream_pwprompt_fail(self):
     #    encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
@@ -94,8 +95,7 @@ class TestPBP(unittest.TestCase):
         rcpt_key = self.gen_key()
         other_key = self.gen_key()
         encrypted = self_key.encrypt(MESSAGE, recipients=[rcpt_key])
-        with self.assertRaises(ValueError):
-            other_key.decrypt(encrypted)
+        self.assertTrue(other_key.decrypt(encrypted) is None)
 
     def test_sign_fail(self):
         self_key = self.gen_key()
