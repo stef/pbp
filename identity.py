@@ -116,32 +116,34 @@ class Identity(object):
             fd.write(nonce)
             fd.write(nacl.crypto_secretbox(key, nonce, k))
 
-    def encrypt(self, msg, recipients=None):
-        mk = nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+    def keyencrypt(self, key, recipients=None):
         c=[]
         for r in recipients:
             nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
-            c.append((nonce, nacl.crypto_box(mk, nonce, r.cp, self.cs)))
+            c.append((nonce, nacl.crypto_box(key, nonce, r.cp, self.cs)))
+        return c
+
+    def encrypt(self, msg, recipients=None):
+        mk = nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
+        c = self.keyencrypt(mk, recipients)
         nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
         return (nonce, c, nacl.crypto_secretbox(msg, nonce, mk))
 
-    def decrypt(self, pkt):
-        source = None
-        mk = None
-        for nonce, ck in pkt[1]:
+    def keydecrypt(self, peers):
+        for nonce, ck in peers:
             for keys in get_public_keys(basedir=self.basedir):
                 try:
-                    mk = nacl.crypto_box_open(ck, nonce, keys.cp, self.cs)
+                    key = nacl.crypto_box_open(ck, nonce, keys.cp, self.cs)
                 except ValueError:
                     continue
-                source = keys.name
-                break
-            if source:
-                break
-        if source:
-            return source, nacl.crypto_secretbox_open(pkt[2], pkt[0], mk)
-        else:
-            raise ValueError
+                return (keys.name, key)
+        return None, None
+
+    def decrypt(self, pkt):
+        source = None
+        peer, key = self.keydecrypt(pkt[1])
+        if key:
+            return peer, nacl.crypto_secretbox_open(pkt[2], pkt[0], key)
 
     def sign(self, msg, master=False):
         signing_key = self.ms if master else self.ss
