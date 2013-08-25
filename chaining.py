@@ -84,6 +84,22 @@ class ChainingContext(object):
             fd.write(nonce)
             fd.write(nacl.crypto_box(ctx, nonce, self.me_id.cp, self.me_id.cs))
 
+    def encrypt(self,plain):
+        if self.out_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
+            # encrypt using public key
+            nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
+            if not self.peer_id:
+                self.peer_id = identity.Identity(self.peer, basedir=self.basedir)
+            if not self.me_id:
+                self.me_id = identity.Identity(self.me, basedir=self.basedir)
+            cipher= nacl.crypto_box(plain, nonce, self.peer_id.cp, self.me_id.cs)
+        else:
+            # encrypt using chaining mode
+            nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
+            cipher = nacl.crypto_secretbox(plain, nonce, self.out_k)
+
+        return cipher, nonce
+
     def send(self,plain):
         # update context
         if self.peer_pub != ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
@@ -113,38 +129,27 @@ class ChainingContext(object):
         plain = ''.join((dh1, dh2, plain))
 
         # encrypt the whole packet
-        if self.out_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
-            # encrypt using public key
-            nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
-            if not self.peer_id:
-                self.peer_id = identity.Identity(self.peer, basedir=self.basedir)
-            if not self.me_id:
-                self.me_id = identity.Identity(self.me, basedir=self.basedir)
-            cipher= nacl.crypto_box(plain, nonce, self.peer_id.cp, self.me_id.cs)
-        else:
-            # encrypt using chaining mode
-            nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-            cipher = nacl.crypto_secretbox(plain, nonce, self.out_k)
+        return self.encrypt(plain)
 
-        return cipher, nonce
-
-    def receive(self, cipher, nonce):
-        # decrypt the packet
+    def decrypt(self, cipher, nonce):
         if self.in_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             # use pk crypto to decrypt the packet
             if not self.peer_id:
                 self.peer_id = identity.Identity(self.peer, basedir=self.basedir)
             if not self.me_id:
                 self.me_id = identity.Identity(self.me, basedir=self.basedir)
-            plain = nacl.crypto_box_open(cipher, nonce, self.peer_id.cp, self.me_id.cs)
+            return nacl.crypto_box_open(cipher, nonce, self.peer_id.cp, self.me_id.cs)
         else:
             # decrypt using chained keys
             try:
-                print
-                plain = nacl.crypto_secretbox_open(cipher, nonce, self.in_k)
+                return nacl.crypto_secretbox_open(cipher, nonce, self.in_k)
             except ValueError:
                 # with previous key in case a prev send failed to be delivered
-                plain = nacl.crypto_secretbox_open(cipher, nonce, self.in_prev)
+                return nacl.crypto_secretbox_open(cipher, nonce, self.in_prev)
+
+    def receive(self, cipher, nonce):
+        # decrypt the packet
+        plain = self.decrypt(cipher, nonce)
 
         # update context
         self.peer_pub=plain[:nacl.crypto_scalarmult_curve25519_BYTES]
