@@ -246,6 +246,24 @@ def keysign_handler(name=None, self=None, basedir=None):
         me.clear()
         fd.write(sig[:nacl.crypto_sign_BYTES])
 
+def keycheck_handler(name=None, basedir=None):
+    fname = identity.get_pk_filename(basedir, name)
+    with open(fname,'r') as fd:
+        pk = fd.read()
+    sigs=[]
+    with open(fname+".sig",'r') as fd:
+        sigdat=fd.read()
+    i=0
+    csb = nacl.crypto_sign_BYTES
+    while i<len(sigdat)/64:
+        res = identity.verify(sigdat[i*csb:(i+1)*csb]+pk,
+                              basedir=basedir,
+                              master=True)
+        if res:
+            sigs.append(res[0])
+        i+=1
+    print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
+
 def export_handler(self, basedir=None):
     keys = identity.Identity(self, basedir=basedir)
     pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
@@ -271,24 +289,6 @@ def import_handler(infile=None, basedir=None):
     # TODO check if key exists, then ask for confirmation of pk overwrite
     peer.save()
     print 'Success: imported public keys for', name
-
-def keycheck_handler(name=None, basedir=None):
-    fname = identity.get_pk_filename(basedir, name)
-    with open(fname,'r') as fd:
-        pk = fd.read()
-    sigs=[]
-    with open(fname+".sig",'r') as fd:
-        sigdat=fd.read()
-    i=0
-    csb = nacl.crypto_sign_BYTES
-    while i<len(sigdat)/64:
-        res = identity.verify(sigdat[i*csb:(i+1)*csb]+pk,
-                              basedir=basedir,
-                              master=True)
-        if res:
-            sigs.append(res[0])
-        i+=1
-    print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
 
 def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
     if not infile: infile = sys.stdin
