@@ -16,7 +16,7 @@ scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6
 _prev_passphrase = ''
 
 def getkey(l, pwd='', empty=False, text=''):
-    # queries the user for a passphrase if neccessary, and
+    # queries the user twice for a passphrase if neccessary, and
     # returns a scrypted key of length l
     global _prev_passphrase
     if not pwd:
@@ -35,6 +35,7 @@ def getkey(l, pwd='', empty=False, text=''):
         return scrypt.hash(pwd, scrypt_salt)[:l]
 
 def encrypt(msg, pwd=None, k=None):
+    # symmetric
     nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
     if not k: k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
     return (nonce, nacl.crypto_secretbox(msg, nonce, k))
@@ -311,11 +312,11 @@ def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--gen-key',     '-g',  dest='action', action='store_const', const='g', help="generates a new key")
-    group.add_argument('--encrypt',     '-c',  dest='action', action='store_const', const='c',help="encrypts stdin")
-    group.add_argument('--decrypt',     '-d',  dest='action', action='store_const', const='d',help="decrypts stdin")
-    group.add_argument('--sign',        '-s',  dest='action', action='store_const', const='s',help="signs stdin")
-    group.add_argument('--master-sign', '-m',  dest='action', action='store_const', const='m',help="signs stdin with your masterkey")
-    group.add_argument('--verify',      '-v',  dest='action', action='store_const', const='v',help="verifies stdin")
+    group.add_argument('--encrypt',     '-c',  dest='action', action='store_const', const='c',help="encrypts")
+    group.add_argument('--decrypt',     '-d',  dest='action', action='store_const', const='d',help="decrypts")
+    group.add_argument('--sign',        '-s',  dest='action', action='store_const', const='s',help="signs")
+    group.add_argument('--master-sign', '-m',  dest='action', action='store_const', const='m',help="signs with your masterkey")
+    group.add_argument('--verify',      '-v',  dest='action', action='store_const', const='v',help="verifies")
     group.add_argument('--list',        '-l',  dest='action', action='store_const', const='l',help="lists public keys")
     group.add_argument('--list-secret', '-L',  dest='action', action='store_const', const='L',help="Lists secret keys")
     group.add_argument('--export-key',  '-x',  dest='action', action='store_const', const='x',help="export public key")
