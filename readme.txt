@@ -18,7 +18,6 @@
 
 # (c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
 # v0.1 - experimental
-# TODO implement buffering for file ops
 
 set -x
 git clone https://github.com/stef/pbp.git || exit 1
