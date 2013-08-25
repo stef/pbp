@@ -130,11 +130,11 @@ def crypto_sign_open(sm, pk):
     return sodium.ffi.buffer(msg, msglen[0])[:]
 
 def test():
-    from utils import b85encode
-    print b85encode(crypto_generichash('howdy'))
+    import binascii
+    print binascii.hexlify(crypto_generichash('howdy'))
     state = crypto_generichash_init()
     state = crypto_generichash_update(state, 'howdy')
-    print b85encode(crypto_generichash_final(state))
+    print binascii.hexlify(crypto_generichash_final(state))
 
     pk, sk = crypto_box_keypair()
     n = randombytes(crypto_box_NONCEBYTES)
