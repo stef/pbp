@@ -9,6 +9,8 @@ import chaining, identity
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
+SIGPREFIX = '\nnacl-'
+BLOCK_SIZE = 1024*1024
 
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
@@ -48,9 +50,11 @@ def decrypt(pkt, pwd=None, basedir=None, k=None):
     return nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
-    if not infile: infile = sys.stdin
-    with open(infile,'r') as fd:
-        msg=fd.read()
+    if not infile: msg = sys.stdin.read()
+    else:
+        with open(infile,'r') as fd:
+            # TODO buffered
+            msg=fd.read()
     output_filename = outfile if outfile else infile + '.pbp'
     with file(output_filename, 'w') as fd:
         if recipient and self:
@@ -78,6 +82,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
 
 def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     if not infile: infile = sys.stdin
+    # TODO FIXME with (open(infile,'r') if infile else sys.stdin) as fd:
     with open(infile,'r') as fd:
         type=struct.unpack('B',fd.read(1))[0]
         # asym
@@ -90,9 +95,10 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
             r = []
             for _ in xrange(size):
                 rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
-                ct = read_prefixed_byte_length(fd)
+                ct = fd.read(struct.unpack('B', fd.read(1))[0])
                 r.append((rnonce,ct))
             me = identity.Identity(self, basedir=basedir)
+            # TODO buffered
             sender, msg = me.decrypt((nonce,
                                       r,
                                       fd.read())) or ('', 'decryption failed')
@@ -110,6 +116,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         # sym
         elif type == BLOCK_CIPHER:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+            # TODO buffered
             msg = decrypt((nonce, fd.read()))
 
         if len(msg):
@@ -122,37 +129,78 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
             print >>sys.stderr,  'decryption failed'
 
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
-    if not infile: infile = sys.stdin
-    with open(infile,'r') as fd:
-        data = fd.read()
-    signed = identity.Identity(self, basedir=basedir).sign(data)
+    if not infile or infile == '-':
+        fd = sys.stdin
+    else:
+        fd = open(infile,'r')
+
+    if (not outfile and armor) or outfile == '-':
+        outfd = sys.stdout
+    else:
+        outfd = open(outfile or infile+'.sig','w')
+
+    # calculate hash sum of data
+    state = nacl.crypto_generichash_init()
+    for block in fd.read(BLOCK_SIZE):
+        state = nacl.crypto_generichash_update(state, block)
+        outfd.write(block)
+    hashsum = nacl.crypto_generichash_final(state)
+
+    # sign hashsum
+    sig = identity.Identity(self, basedir=basedir).sign(hashsum)[:nacl.crypto_sign_BYTES]
     if armor:
-        sig = signed[:nacl.crypto_sign_BYTES]
-        signed = "nacl-%s\n%s" % (b85encode(sig),
-                                  signed[nacl.crypto_sign_BYTES:])
-        if not outfile:
-            sys.stdout.write(signed)
-            return
-    with open(outfile or infile+'.sig','w') as fd:
-        fd.write(signed)
+        signed = "%s%s" % (SIGPREFIX, b85encode(sig))
+    if armor and not outfile:
+        sys.stdout.write(signed)
+    else:
+        outfd.write(sig)
+
+    if infile: fd.close()
+    outfd.close()
 
 def verify_handler(infile=None, outfile=None, basedir=None):
-    if not infile: infile = sys.stdin
-    with open(infile,'r') as fd:
-        data = fd.read()
-    if data.startswith('nacl-'):
-        tmp = data.split('\n', 1)
-        data = "%s%s" % (b85decode(tmp[0][5:]),tmp[1])
-    sender, msg = identity.verify(data, basedir=basedir) or ('', 'verification failed')
-    if len(sender)>0:
-        if outfile:
-            with open(outfile,'w') as fd:
-                fd.write(msg)
-        else:
-            sys.stdout.write(msg)
+    if not infile or infile == '-':
+        fd = sys.stdin
+    else:
+        fd = open(infile,'r')
+    if not outfile or outfile == '-':
+        outfd = sys.stdout
+    else:
+        outfd = open(outfile,'w')
+
+    # calculate hash sum of data
+    state = nacl.crypto_generichash_init()
+    block = fd.read(BLOCK_SIZE/2)
+    while len(block)>0:
+        # use two half blocks, to overcome
+        # sigs spanning block boundaries
+        if len(block)==(BLOCK_SIZE/2):
+            next=fd.read(BLOCK_SIZE/2)
+        else: next=''
+
+        fullblock = "%s%s" % (block, next)
+        sigoffset = fullblock.rfind(SIGPREFIX)
+
+        if 0 <= sigoffset <= (BLOCK_SIZE/2):
+            sig = b85decode(fullblock[sigoffset+len(SIGPREFIX):])
+            block = block[:sigoffset]
+            next = ''
+        elif len(fullblock)<(BLOCK_SIZE/2)+nacl.crypto_sign_BYTES:
+            sig = fullblock[-nacl.crypto_sign_BYTES:]
+            block = fullblock[:-nacl.crypto_sign_BYTES]
+            next = ''
+        state = nacl.crypto_generichash_update(state, block)
+        if outfd: outfd.write(block)
+        block = next
+    hashsum = nacl.crypto_generichash_final(state)
+
+    sender, hashsum1 = identity.verify(sig+hashsum, basedir=basedir) or ([], '')
+    if len(sender)>0 and hashsum == hashsum1:
         print >>sys.stderr, "good message from", sender
     else:
-        print >>sys.stderr, msg
+        print >>sys.stderr, 'verification failed'
+    if infile: fd.close()
+    if outfile: outfd.close()
 
 def keysign_handler(name=None, self=None, basedir=None):
     fname = identity.get_pk_filename(basedir, name)
@@ -209,6 +257,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     output_filename = outfile if outfile else infile + '.pbp'
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
+    # TODO buffered
     with open(infile, 'r') as inp:
         msg=inp.read()
     cipher, nonce = ctx.send(msg)
@@ -221,6 +270,7 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     if not infile: infile = sys.stdin
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
+    # TODO buffered
     with open(infile,'r') as fd:
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         ct = fd.read()
@@ -231,9 +281,6 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
         with open(outfile, 'w') as fd:
             fd.write(msg)
     ctx.save()
-
-def read_prefixed_byte_length(fd):
-    return fd.read(struct.unpack('B', fd.read(1))[0])
 
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
