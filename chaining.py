@@ -17,7 +17,7 @@
 
 # (C) 2013 by Stefan Marsiske, <s@ctrlc.hu>
 
-import nacl, os
+import pysodium as nacl, os
 from utils import b85encode, clearmem
 import identity
 

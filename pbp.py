@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import nacl, scrypt # external dependencies
+import pysodium as nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
 from utils import split_by_n, b85encode, b85decode, lockmem, clearmem

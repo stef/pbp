@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import nacl
+import pysodium as nacl
 from base85 import b85encode
 
 def _2user():
