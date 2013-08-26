@@ -383,7 +383,7 @@ def main():
     group.add_argument('--encrypt',     '-c',  dest='action', action='store_const', const='c',help="encrypts")
     group.add_argument('--decrypt',     '-d',  dest='action', action='store_const', const='d',help="decrypts")
     group.add_argument('--sign',        '-s',  dest='action', action='store_const', const='s',help="signs")
-    group.add_argument('--master-sign', '-m',  dest='action', action='store_const', const='m',help="signs with your masterkey")
+    group.add_argument('--master-sign', '-m',  dest='action', action='store_const', const='m',help="signs keys with your masterkey")
     group.add_argument('--verify',      '-v',  dest='action', action='store_const', const='v',help="verifies")
     group.add_argument('--list',        '-l',  dest='action', action='store_const', const='l',help="lists public keys")
     group.add_argument('--list-secret', '-L',  dest='action', action='store_const', const='L',help="Lists secret keys")
