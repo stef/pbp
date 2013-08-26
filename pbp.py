@@ -126,7 +126,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
             raise ValueError
         size = struct.unpack('>L',fd.read(4))[0]
         r = []
-        for _ in xrange(size):
+        for _ in range(size):
             rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
             ct = fd.read(struct.unpack('B', fd.read(1))[0])
             r.append((rnonce,ct))
