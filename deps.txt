@@ -1,3 +1,4 @@
 cffi
 scrypt
 pysodium
+SecureString

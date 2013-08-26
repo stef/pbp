@@ -91,17 +91,6 @@ def b85decode(text):
 
     return out
 
-def clearmem(buf):
-    return # XXX
-    location = id(buf) + 20
-    size     = sys.getsizeof(buf) - 20
-
-    if platform.system() == 'Linux':
-        cleanse =  ctypes.CDLL("libssl.so").OPENSSL_cleanse
-    #elif platform.system() == 'Windows':
-    #    memset =  ctypes.cdll.msvcrt.memchr
-    cleanse(location, size)
-
 _MCL_CURRENT = 1
 _MCL_FUTURE = 2
 def lockmem():
