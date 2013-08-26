@@ -360,17 +360,18 @@ def dh3_handler(public, exp):
     clearmem(secret)
 
 def random_stream_handler(outfile = None, size = None):
+    bsize = 2**16
     outfd = sys.stdout if not outfile else open(outfile, 'w')
     if not size:
         while True:
             # write endlessly
-            outfd.write(nacl.crypto_stream(BLOCK_SIZE))
+            outfd.write(nacl.crypto_stream(bsize))
     i = 0
     size = long(size)
     while i <= size:
-        if i+BLOCK_SIZE <= size:
-            outfd.write(nacl.crypto_stream(size))
-            i+=BLOCK_SIZE
+        if i+bsize <= size:
+            outfd.write(nacl.crypto_stream(bsize))
+            i+=bsize
         else:
             outfd.write(nacl.crypto_stream(size - i))
             break
