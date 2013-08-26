@@ -377,7 +377,7 @@ def random_stream_handler(outfile = None, size = None):
             break
 
 def main():
-    parser = argparse.ArgumentParser(description='Pretty Better Privacy')
+    parser = argparse.ArgumentParser(description='pbp')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--gen-key',     '-g',  dest='action', action='store_const', const='g', help="generates a new key")
     group.add_argument('--encrypt',     '-c',  dest='action', action='store_const', const='c',help="encrypts")
