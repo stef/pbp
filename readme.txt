@@ -55,7 +55,8 @@ exchanges from the command-line.
 Fingerprinting
 
 pbp tries to avoid to store any sensitive plaintext info, the
-encrypted files all should look like random noise.
+encrypted files all should look like random noise. for a description
+of the packet formats see docs/fileformats.txt.
 
 Testing
 
