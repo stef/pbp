@@ -80,11 +80,11 @@ sending howdy.txt using public key encryption from alice to bob
 
    pbp.py -c -S alice -r bob -i howdy.txt
 
-decrypt an encrypted flie using public key crypto
+decrypt an encrypted file using public key crypto
 
    pbp.py -d -S bob -i howdy.txt.pbp
 
-sending howdi.txt using secret key encryption
+sending howdy.txt using secret key encryption
 
    pbp.py -c -i howdy.txt
 
