@@ -20,12 +20,23 @@ dependencies
 
 Design goals:
 
- 1. use modern crypo based on NaCl
+ 1. use modern crypo
  2. provide similar functionality to PGP
  3. be extensible
  4. difficult to identify based on fingerprinting
  5. provide extensive testing
  6. strive for security
+
+Crypto
+
+Cryptographic primitives are based on the NaCl library from
+http://nacl.cr.yp.to. The KDF used is scrypt.
+
+PGP-like
+
+Provides basic public key encrypt/decrypt, sign/verify and secret key
+encrypt/decrypt modes, as well as the ability to sign, verify, list,
+generate, export and import keys. 
 
 Extensibility
 
