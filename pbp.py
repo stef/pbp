@@ -522,7 +522,7 @@ def main():
         dh3_handler(opts.dh_param, opts.dh_exp)
 
     elif opts.action=='R':
-        ensure_size_isint(opts)
+        ensure_size_good(opts)
         random_stream_handler(opts.outfile, opts.size)
 
 def ensure_self_specified(opts):
@@ -550,12 +550,25 @@ def ensure_dhexp_specified(opts):
     if not opts.dh_exp:
         die("Error: need to specify your secret ECDH exponent using the -De param")
 
-def ensure_size_isint(opts):
+def ensure_size_good(opts):
     if opts.size:
+        fact = 1
+        if opts.size[-1] == 'K':
+            fact = 1024
+            opts.size = opts.size[:-1]
+        elif opts.size[-1] == 'M':
+            fact = 1024 * 1024
+            opts.size = opts.size[:-1]
+        elif opts.size[-1] == 'G':
+            fact = 1024 * 1024 * 1024
+            opts.size = opts.size[:-1]
+        elif opts.size[-1] == 'T':
+            fact = 1024 * 1024 * 1024 * 1024
+            opts.size = opts.size[:-1]
         try:
-            opts.size = long(opts.size)
+            opts.size = float(opts.size) * fact
         except:
-            die("Error: need to specify an integer after -Rs")
+            die("Error: need to specify an float after -Rs <float><[K|M|G|T]>")
 
 def die(msg):
     print >>sys.stderr, msg
