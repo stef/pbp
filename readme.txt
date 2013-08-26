@@ -2,7 +2,7 @@ pbp
 
 v0.4.99 - experimental
 
-PBP is a simple python wrapper around libsodium, to provide basic
+PBP[0] is a simple python wrapper around libsodium, to provide basic
 functionality resembling PGP. It uses scrypt for a KDF and a much
 simpler packet format, which should be much harder to fingerprint and
 also provides a forward secrecy mode.
@@ -134,3 +134,5 @@ random streaming 23GByte of cryptographic randomness
 
 (c) 2013, stf <s@ctrlc.hu>, dnet vsza@vsza.hu, AGPLv3.0+
 
+[0] also it's very funny to say pbp with a mouth full of dry cookies.
+don't try this in company!
