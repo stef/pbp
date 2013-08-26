@@ -207,12 +207,12 @@ def verify_handler(infile=None, outfile=None, basedir=None):
 
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
-    block = fd.read(BLOCK_SIZE/2)
+    block = fd.read(int(BLOCK_SIZE/2))
     while block:
         # use two half blocks, to overcome
         # sigs spanning block boundaries
         if len(block)==(BLOCK_SIZE/2):
-            next=fd.read(BLOCK_SIZE/2)
+            next=fd.read(int(BLOCK_SIZE/2))
         else: next=''
 
         fullblock = "%s%s" % (block, next)
