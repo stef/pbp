@@ -1,44 +1,84 @@
-# pbp
+pbp
 
-# this is a simple python wrapper around nacl, to provide basic
-# functionality resembling PGP. It uses scrypt for a KDF and a much
-# simpler packet format, that is much harder to fingerprint, and
-# provides a PFS mode.
+(c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
+v0.4.99 - experimental
 
-# this is a automatic install script besides
-# use:
-# wget -O - https://raw.github.com/stef/pbp/master/readme.txt | sh -
-# to install pbp automatically
-# you possibly need to run (or an equivalent command)
-# sudo apt-get install git python-virtualenv gcc python-dev
-# to satisfy all basic dependencies
+PBP is a simple python wrapper around libsodium, to provide basic
+functionality resembling PGP. It uses scrypt for a KDF and a much
+simpler packet format, that is much harder to fingerprint, and
+provides a forward secrecy mode.
 
-# this is neccessary as libsodium needs to be compiled as a
-# dependency.
+Installation
 
-# (c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
-# v0.1.1 - experimental
+The install.txt is also a automatic install script use:
 
-set -x
-git clone https://github.com/stef/pbp.git || exit 1
-cd pbp
+   wget -O - https://raw.github.com/stef/pbp/master/install.txt | sh -
 
-# install latest libsodium from https://github.com/jedisct1/libsodium
-curl -L https://download.libsodium.org/libsodium/releases/LATEST.tar.gz | tar xz || exit 1
-cd libsodium-* || exit 1
-./configure || exit 1
-make && make check && sudo make install || exit 1
-cd ..
-rm -rf libsodium-* || exit 1
+you possibly need to run (or an equivalent command) sudo apt-get
+install git python-virtualenv gcc python-dev to satisfy all basic
+dependencies
 
-virtualenv env || exit 1
-. env/bin/activate
+Design goals:
 
-pip install -r deps.txt || exit 1
+ 1. use modern crypo based on NaCl
+ 2. provide similar functionality to PGP
+ 3. be extensible
+ 4. difficult to identify based on fingerprinting
 
-# check out test.sh for examples how to use pbp.py
-./pbp.py -h
+Usage:
 
-echo "running test.sh"
-echo "hint: enter 'a' as a password everywhere, and it'll be easy"
-./test.sh
+Generate a key
+
+   pbp.py -g -n alice
+
+sending howdy.txt using public key encryption from alice to bob
+
+   pbp.py -c -S alice -r bob -i howdy.txt
+
+decrypt an encrypted flie using public key crypto
+
+   pbp.py -d -S bob -i howdy.txt.pbp
+
+sending howdi.txt using secret key encryption
+
+   pbp.py -c -i howdy.txt
+
+decrypt an encrypted flie using secret key crypto
+
+   pbp.py -d -i howdy.txt.pbp
+
+sign howdy.txt
+
+   pbp.py -s -S alice -i /howdy.txt
+
+verify howdy.txt
+
+   pbp.py -v -i howdy.txt.sig
+
+sign bobs key
+
+   pbp.py -m -S alice -n bob
+
+check sigs on carols key
+
+   pbp.py -C -n carol
+
+alice encrypts howdy.txt to bob using experimental forward secret mode
+
+   pbp.py -e -S alice -r bob -i howdy.txt -o ./secret-message
+
+bob decrypts howdy.txt from alice using experimental forward secret mode
+
+   pbp.py -E -S bob -r alice -i ./secret-message
+
+initiate ECDH key exchange
+
+   pbp.py -D1
+
+respond to ECDH key exchange
+
+   pbp.py -D2 -Dp 'public component from D1'
+
+finish ECDH key exchange
+
+  pbp.py -D3 -Dp 'public component from D2' -De 'secret exponent from D1'

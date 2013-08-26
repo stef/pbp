@@ -1,0 +1,44 @@
+# pbp
+
+# this is a simple python wrapper around nacl, to provide basic
+# functionality resembling PGP. It uses scrypt for a KDF and a much
+# simpler packet format, that is much harder to fingerprint, and
+# provides a PFS mode.
+
+# this is a automatic install script besides
+# use:
+# wget -O - https://raw.github.com/stef/pbp/master/readme.txt | sh -
+# to install pbp automatically
+# you possibly need to run (or an equivalent command)
+# sudo apt-get install git python-virtualenv gcc python-dev
+# to satisfy all basic dependencies
+
+# this is neccessary as libsodium needs to be compiled as a
+# dependency.
+
+# (c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
+# v0.1.1 - experimental
+
+set -x
+git clone https://github.com/stef/pbp.git || exit 1
+cd pbp
+
+# install latest libsodium from https://github.com/jedisct1/libsodium
+curl -L https://download.libsodium.org/libsodium/releases/LATEST.tar.gz | tar xz || exit 1
+cd libsodium-* || exit 1
+./configure || exit 1
+make && make check && sudo make install || exit 1
+cd ..
+rm -rf libsodium-* || exit 1
+
+virtualenv env || exit 1
+. env/bin/activate
+
+pip install -r deps.txt || exit 1
+
+# check out test.sh for examples how to use pbp.py
+./pbp.py -h
+
+echo "running test.sh"
+echo "hint: enter 'a' as a password everywhere, and it'll be easy"
+./test.sh
