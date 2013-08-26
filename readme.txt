@@ -127,5 +127,9 @@ finish ECDH key exchange
 
   pbp.py -D3 -Dp 'public component from D2' -De 'secret exponent from D1'
 
+random streaming
+
+  pbp.py -R -Rs 99999999 -o /mnt/huge_fs/random_data
 
 (c) 2013, stf <s@ctrlc.hu>, dnet vsza@vsza.hu, AGPLv3.0+
+
