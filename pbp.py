@@ -6,7 +6,6 @@ try:
 except:
     imap = map
 from utils import split_by_n, b85encode, b85decode, lockmem
-from SecureString import clearmem
 import chaining, publickey
 
 ASYM_CIPHER = 5
@@ -583,6 +582,9 @@ if __name__ == '__main__':
         sys.stdin = sys.stdin.detach()
         sys.stdout = sys.stdout.detach()
         long = int
+        def clearmem(buf): return
+    else:
+        from SecureString import clearmem
     lockmem()
     main()
     clearmem(_prev_passphrase)
