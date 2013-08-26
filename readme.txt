@@ -24,7 +24,7 @@ setup.py
 
 Design goals:
 
- 1. use modern crypo
+ 1. use modern crypto
  2. provide similar functionality to PGP
  3. be extensible
  4. difficult to identify based on fingerprinting
