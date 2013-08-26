@@ -42,10 +42,11 @@ generate, export and import keys.
 
 Extensibility
 
-using pbp and the underlying pysodium[1] library it's easy to extend pbp.
-Two examples are the experimental forward secrecy mode (see
-description in docs/chaining-dh.txt) and the support for ECDH key
-exchanges from the command-line.
+using pbp and the underlying pysodium[1] library it's easy to extend
+pbp.  Some examples are the experimental forward secrecy mode (see
+description in docs/chaining-dh.txt), the support for ECDH key
+exchanges from the command-line and generation of arbitrarily large
+random byte streams.
 
 [1] https://github.com/stef/pysodium also available on
     https://pypi.python.org/pypi/pysodium
