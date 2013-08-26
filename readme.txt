@@ -1,6 +1,5 @@
 pbp
 
-(c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
 v0.4.99 - experimental
 
 PBP is a simple python wrapper around libsodium, to provide basic
@@ -24,7 +23,7 @@ setup.py
 
 Design goals:
 
- 1. use modern crypo
+ 1. use modern crypto
  2. provide similar functionality to PGP
  3. be extensible
  4. difficult to identify based on fingerprinting
@@ -126,3 +125,6 @@ respond to ECDH key exchange
 finish ECDH key exchange
 
   pbp.py -D3 -Dp 'public component from D2' -De 'secret exponent from D1'
+
+
+(c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
