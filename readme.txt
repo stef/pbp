@@ -127,4 +127,4 @@ finish ECDH key exchange
   pbp.py -D3 -Dp 'public component from D2' -De 'secret exponent from D1'
 
 
-(c) 2013, Stefan Marsiske <s@ctrlc.hu>, AGPLv3.0+
+(c) 2013, stf <s@ctrlc.hu>, dnet vsza@vsza.hu, AGPLv3.0+
