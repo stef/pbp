@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
 import os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
