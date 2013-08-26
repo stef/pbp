@@ -29,10 +29,13 @@ Design goals:
 
 Extensibility
 
-using pbp and the underlying pysodium library it's easy to extend pbp.
+using pbp and the underlying pysodium[1] library it's easy to extend pbp.
 Two examples are the experimental forward secrecy mode (see
 description in docs/chaining-dh.txt) and the support for ECDH key
 exchanges from the command-line.
+
+[1] https://github.com/stef/pysodium also available on
+    https://pypi.python.org/pypi/pysodium
 
 Fingerprinting
 
