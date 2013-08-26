@@ -64,8 +64,10 @@ tests.py, and commandline functionality is tested in test.sh.
 Security
 
 pbp locks the process memory, so it cannot be swapped to disk. Also
-pbp tries to overwrite sensitive key material after usage in memory,
-so it can only be briefly dumped.
+pbp uses SecureString[2] to overwrite sensitive key material after
+usage in memory, so keys have a short window of opportunity to leak.
+
+[2] https://github.com/dnet/pysecstr
 
 Usage
 
