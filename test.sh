@@ -55,3 +55,7 @@ echo test some repeated msgs
 ./pbp.py -E -S bob -r alice -b ./test-pbp/ -i /tmp/2bob-2 || exit
 ./pbp.py -e -S bob -r alice -b ./test-pbp/ -i ./test-pbp/howdy.txt -o /tmp/2alice || exit
 ./pbp.py -E -S alice -r bob -b ./test-pbp/ -i /tmp/2alice -o /tmp/4alice || exit
+
+echo testing random number streaming
+./pbp.py -R -Rs 99999999 | pv -ftrab >/dev/null
+

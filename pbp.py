@@ -359,6 +359,22 @@ def dh3_handler(public, exp):
     print "shared secret", b85encode(secret)
     clearmem(secret)
 
+def random_stream_handler(outfile = None, size = None):
+    outfd = sys.stdout if not outfile else open(outfile, 'w')
+    if not size:
+        while True:
+            # write endlessly
+            outfd.write(nacl.crypto_stream(BLOCK_SIZE))
+    i = 0
+    size = long(size)
+    while i <= size:
+        if i+BLOCK_SIZE <= size:
+            outfd.write(nacl.crypto_stream(size))
+            i+=BLOCK_SIZE
+        else:
+            outfd.write(nacl.crypto_stream(size - i))
+            break
+
 def main():
     parser = argparse.ArgumentParser(description='Pretty Better Privacy')
     group = parser.add_mutually_exclusive_group()
@@ -378,6 +394,7 @@ def main():
     group.add_argument('--dh-start',    '-D1', dest='action', action='store_const', const='d1',help="initiates an ECDH key exchange")
     group.add_argument('--dh-respond',  '-D2', dest='action', action='store_const', const='d2',help="responds to an ECDH key request")
     group.add_argument('--dh-end',      '-D3', dest='action', action='store_const', const='d3',help="finalizes an ECDH key exchange")
+    group.add_argument('--rand-stream', '-R',  dest='action', action='store_const', const='R',help="generate arbitrary random stream")
 
     parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
@@ -385,6 +402,7 @@ def main():
     parser.add_argument('--self',       '-S', help="sets your own key")
     parser.add_argument('--dh-param',   '-Dp',help="public parameter for ECDH key exchange")
     parser.add_argument('--dh-exp',     '-De',help="public parameter for ECDH key exchange")
+    parser.add_argument('--size',       '-Rs',help="size of random stream to generate")
     parser.add_argument('--infile',     '-i', help="file to operate on")
     parser.add_argument('--armor',      '-a', action='store_true', help="ascii armors the output")
     parser.add_argument('--outfile',    '-o', help="file to output to")
@@ -502,6 +520,10 @@ def main():
         ensure_dhexp_specified(opts)
         dh3_handler(opts.dh_param, opts.dh_exp)
 
+    elif opts.action=='R':
+        ensure_size_isint(opts)
+        random_stream_handler(opts.outfile, opts.size)
+
 def ensure_self_specified(opts):
     if not opts.self:
         die("Error: need to specify your own key using the --self param")
@@ -526,6 +548,13 @@ def ensure_dhparam_specified(opts):
 def ensure_dhexp_specified(opts):
     if not opts.dh_exp:
         die("Error: need to specify your secret ECDH exponent using the -De param")
+
+def ensure_size_isint(opts):
+    if opts.size:
+        try:
+            opts.size = long(opts.size)
+        except:
+            die("Error: need to specify an integer after -Rs")
 
 def die(msg):
     print >>sys.stderr, msg
