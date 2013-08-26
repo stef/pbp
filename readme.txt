@@ -18,6 +18,10 @@ you possibly need to run (or an equivalent command) sudo apt-get
 install git python-virtualenv gcc python-dev to satisfy all basic
 dependencies
 
+TODO
+
+setup.py
+
 Design goals:
 
  1. use modern crypo
