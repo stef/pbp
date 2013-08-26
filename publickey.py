@@ -106,7 +106,7 @@ class Identity(object):
             return nacl.crypto_secretbox_open(fd.read(), nonce, k)
 
     def savepublickeys(self):
-        with open(get_pk_filename(self.basedir, self.name), 'w') as fd:
+        with open(get_pk_filename(self.basedir, self.name), 'wb') as fd:
             dates='{:<32}{:<32}'.format(self.created.isoformat(), self.valid.isoformat())
             fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates+self.name, self.ms))
 
@@ -116,7 +116,7 @@ class Identity(object):
                        empty=True,
                        text='Master' if ext == 'mk' else 'Subkey')
         nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-        with open(fname,'w') as fd:
+        with open(fname,'wb') as fd:
             fd.write(nonce)
             fd.write(nacl.crypto_secretbox(key, nonce, k))
 

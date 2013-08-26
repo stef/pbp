@@ -75,7 +75,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     if outfile == '-':
         outfd = sys.stdout
     else:
-        outfd = open(outfile or infile+'.pbp','w')
+        outfd = open(outfile or infile+'.pbp','wb')
 
     if recipient and self:
         # let's do public key encryption
@@ -115,7 +115,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     if not outfile or outfile == '-':
         outfd = sys.stdout
     else:
-        outfd = open(outfile,'w')
+        outfd = open(outfile,'wb')
 
     key = None
     type=struct.unpack('B',fd.read(1))[0]
@@ -170,7 +170,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     if (not outfile and armor) or outfile == '-':
         outfd = sys.stdout
     else:
-        outfd = open(outfile or infile+'.sig','w')
+        outfd = open(outfile or infile+'.sig','wb')
 
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
@@ -201,7 +201,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     if not outfile or outfile == '-':
         outfd = sys.stdout
     else:
-        outfd = open(outfile,'w')
+        outfd = open(outfile,'wb')
 
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
@@ -302,7 +302,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     inp = open(infile, 'r')
     msg=inp.read(BLOCK_SIZE)
     cipher, nonce = ctx.send(msg)
-    fd = open(output_filename, 'w')
+    fd = open(output_filename, 'wb')
     while True:
         fd.write(nonce)
         fd.write(cipher)
@@ -316,7 +316,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
 
 def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     fd = sys.stdin if not infile else open(infile,'r')
-    outfd = sys.stdout if not outfile else open(outfile, 'w')
+    outfd = sys.stdout if not outfile else open(outfile, 'wb')
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
     blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
@@ -364,7 +364,7 @@ def dh3_handler(public, exp):
 
 def random_stream_handler(outfile = None, size = None):
     bsize = 2**16
-    outfd = sys.stdout if not outfile else open(outfile, 'w')
+    outfd = sys.stdout if not outfile else open(outfile, 'wb')
     if not size:
         while True:
             # write endlessly
