@@ -64,8 +64,7 @@ pbp locks the process memory, so it cannot be swapped to disk. Also
 pbp tries to overwrite sensitive key material after usage in memory,
 so it can only be briefly dumped.
 
-
-Usage:
+Usage
 
 Generate a key
 
