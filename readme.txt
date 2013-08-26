@@ -13,9 +13,8 @@ The install.txt is also a automatic install script use:
 
    wget -O - https://raw.github.com/stef/pbp/master/install.txt | sh -
 
-you possibly need to run (or an equivalent command) sudo apt-get
-install git python-virtualenv gcc python-dev to satisfy all basic
-dependencies
+you possibly need to run (or an equivalent command) sudo apt-get install git
+python-virtualenv gcc python-dev libffi-dev to satisfy all basic dependencies.
 
 TODO
 

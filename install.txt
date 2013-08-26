@@ -3,7 +3,7 @@
 # wget -O - https://raw.github.com/stef/pbp/master/install.txt | sh -
 # to install pbp automatically
 # you possibly need to run (or an equivalent command)
-# sudo apt-get install git python-virtualenv gcc python-dev
+# sudo apt-get install git python-virtualenv gcc python-dev libffi-dev
 # to satisfy all basic dependencies
 
 # this is neccessary as libsodium needs to be compiled as a
