@@ -134,7 +134,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         me.clear()
         sender, key = me.keydecrypt(r)
         if sender:
-            sys.stderr.write('good key from', sender)
+            sys.stderr.write('good key from %s' % sender)
         else:
             sys.stderr.write('decryption failed')
     # sym
@@ -231,7 +231,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
 
     sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
     if sender and hashsum == hashsum1:
-        sys.stderr.write("good message from", sender)
+        sys.stderr.write("good message from %s" % sender)
     else:
         sys.stderr.write('verification failed')
 
@@ -266,7 +266,7 @@ def keycheck_handler(name=None, basedir=None):
         if res:
             sigs.append(res[0])
         i+=1
-    sys.stderr.write('good signatures on', name, 'from', ', '.join(sigs))
+    sys.stderr.write('good signatures on %s from %s' % (name, ', '.join(sigs)))
 
 def export_handler(self, basedir=None):
     keys = publickey.Identity(self, basedir=basedir)

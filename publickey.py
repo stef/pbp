@@ -108,7 +108,7 @@ class Identity(object):
     def savepublickeys(self):
         with open(get_pk_filename(self.basedir, self.name), 'wb') as fd:
             dates='{:<32}{:<32}'.format(self.created.isoformat(), self.valid.isoformat())
-            fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates+self.name, self.ms))
+            fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates.encode()+self.name.encode(), self.ms))
 
     def savesecretekey(self, ext, key):
         fname = get_sk_filename(self.basedir, self.name, ext)
@@ -194,7 +194,7 @@ def get_secret_keys(basedir=None):
             yield Identity(root, basedir=basedir)
 
 def parse_isodatetime(value):
-    return datetime.datetime.strptime(value.strip(), "%Y-%m-%dT%H:%M:%S.%f")
+    return datetime.datetime.strptime(value.strip().decode(), "%Y-%m-%dT%H:%M:%S.%f")
 
 def get_sk_filename(basedir, name, ext='sk'):
     return os.path.join(get_sk_dir(basedir), name + '.' + ext)
