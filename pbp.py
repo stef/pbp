@@ -70,7 +70,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     if not infile or infile == '-':
         fd = sys.stdin
     else:
-        fd = open(infile,'r')
+        fd = open(infile,'rb')
 
     if outfile == '-':
         outfd = sys.stdout
@@ -111,7 +111,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     if not infile or infile == '-':
         fd = sys.stdin
     else:
-        fd = open(infile,'r')
+        fd = open(infile,'rb')
     if not outfile or outfile == '-':
         outfd = sys.stdout
     else:
@@ -165,7 +165,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     if not infile or infile == '-':
         fd = sys.stdin
     else:
-        fd = open(infile,'r')
+        fd = open(infile,'rb')
 
     if (not outfile and armor) or outfile == '-':
         outfd = sys.stdout
@@ -197,7 +197,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     if not infile or infile == '-':
         fd = sys.stdin
     else:
-        fd = open(infile,'r')
+        fd = open(infile,'rb')
     if not outfile or outfile == '-':
         outfd = sys.stdout
     else:
@@ -240,7 +240,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
 
 def keysign_handler(name=None, self=None, basedir=None):
     fname = publickey.get_pk_filename(basedir, name)
-    with open(fname,'r') as fd:
+    with open(fname,'rb') as fd:
         data = fd.read()
     with open(fname+'.sig','a') as fd:
         me = publickey.Identity(self, basedir=basedir)
@@ -252,10 +252,10 @@ def keysign_handler(name=None, self=None, basedir=None):
 
 def keycheck_handler(name=None, basedir=None):
     fname = publickey.get_pk_filename(basedir, name)
-    with open(fname,'r') as fd:
+    with open(fname,'rb') as fd:
         pk = fd.read()
     sigs=[]
-    with open(fname+".sig",'r') as fd:
+    with open(fname+".sig",'rb') as fd:
         sigdat=fd.read()
     i=0
     csb = nacl.crypto_sign_BYTES
@@ -299,7 +299,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     output_filename = outfile if outfile else infile + '.pbp'
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
-    inp = open(infile, 'r')
+    inp = open(infile, 'rb')
     msg=inp.read(BLOCK_SIZE)
     cipher, nonce = ctx.send(msg)
     fd = open(output_filename, 'wb')
@@ -315,7 +315,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     fd.close()
 
 def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
-    fd = sys.stdin if not infile else open(infile,'r')
+    fd = sys.stdin if not infile else open(infile,'rb')
     outfd = sys.stdout if not outfile else open(outfile, 'wb')
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
