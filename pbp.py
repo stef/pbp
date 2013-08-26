@@ -174,7 +174,9 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
 
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
-    for block in fd.read(BLOCK_SIZE):
+    while True:
+        block =  fd.read(BLOCK_SIZE)
+        if not block.strip(): break
         state = nacl.crypto_generichash_update(state, block)
         outfd.write(block)
     hashsum = nacl.crypto_generichash_final(state)
