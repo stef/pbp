@@ -92,6 +92,7 @@ def b85decode(text):
     return out
 
 def clearmem(buf):
+    return # XXX
     location = id(buf) + 20
     size     = sys.getsizeof(buf) - 20
 

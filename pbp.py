@@ -42,7 +42,7 @@ def getkey(l, pwd='', empty=False, text=''):
 def encrypt(msg, pwd=None, k=None):
     # symmetric
     nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-    cleark = (k == None)
+    cleark = (k is None)
     if not k:
         k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
     ciphertext = nacl.crypto_secretbox(msg, nonce, k)
@@ -51,8 +51,8 @@ def encrypt(msg, pwd=None, k=None):
 
 def decrypt(pkt, pwd=None, basedir=None, k=None):
     # symmetric
-    cleark = (pwd == None)
-    clearpwd = (k == None)
+    cleark = (pwd is None)
+    clearpwd = (k is None)
     if not k:
         if not pwd:
             pwd = getpass.getpass('Passphrase for decrypting: ')
