@@ -399,7 +399,7 @@ def main():
 
     parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
-    parser.add_argument('--basedir',    '-b', '--base-dir', help="designates a recipient for public key encryption", default=defaultbase)
+    parser.add_argument('--basedir',    '-b', '--base-dir', help="set the base directory for all key storage needs", default=defaultbase)
     parser.add_argument('--self',       '-S', help="sets your own key")
     parser.add_argument('--dh-param',   '-Dp',help="public parameter for ECDH key exchange")
     parser.add_argument('--dh-exp',     '-De',help="public parameter for ECDH key exchange")
