@@ -26,7 +26,7 @@ def getkey(l, pwd='', empty=False, text=''):
             print >>sys.stderr, "press enter to reuse the previous passphrase"
         while pwd != pwd2 or (not empty and not pwd.strip()):
             pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
-            if len(pwd.strip()):
+            if pwd.strip():
                 pwd2 = getpass.getpass('2/2 %s Repeat passphrase: ' % text)
             elif _prev_passphrase is not None:
                 pwd = _prev_passphrase
@@ -93,7 +93,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         outfd.write(struct.pack("B", BLOCK_CIPHER))
 
     buf = fd.read(BLOCK_SIZE)
-    while len(buf)>0:
+    while buf:
         nonce, cipher = encrypt(buf, k=key)
         outfd.write(nonce)
         outfd.write(cipher)
@@ -145,7 +145,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         while len(nonce) == nacl.crypto_secretbox_NONCEBYTES:
             buf = fd.read(BLOCK_SIZE)
-            if len(buf) == 0:
+            if not buf:
                 print >>sys.stderr, 'decryption failed'
                 break
             outfd.write(decrypt((nonce, buf), k = key))
@@ -202,7 +202,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
     block = fd.read(BLOCK_SIZE/2)
-    while len(block)>0:
+    while block:
         # use two half blocks, to overcome
         # sigs spanning block boundaries
         if len(block)==(BLOCK_SIZE/2):
@@ -226,7 +226,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     hashsum = nacl.crypto_generichash_final(state)
 
     sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
-    if len(sender)>0 and hashsum == hashsum1:
+    if sender and hashsum == hashsum1:
         print >>sys.stderr, "good message from", sender
     else:
         print >>sys.stderr, 'verification failed'
@@ -303,7 +303,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
         fd.write(nonce)
         fd.write(cipher)
         msg=inp.read(BLOCK_SIZE)
-        if len(msg) == 0: break
+        if not msg: break
         cipher, nonce = ctx.encrypt(msg)
     ctx.save()
     ctx.clear()
@@ -325,7 +325,7 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     while True:
         outfd.write(msg)
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-        if len(nonce) == 0:
+        if not nonce:
             break
         if len(nonce) != nacl.crypto_secretbox_NONCEBYTES:
             print >>sys.stderr, 'decryption failed'
