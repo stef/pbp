@@ -5,8 +5,8 @@ v0.4.99 - experimental
 
 PBP is a simple python wrapper around libsodium, to provide basic
 functionality resembling PGP. It uses scrypt for a KDF and a much
-simpler packet format, that is much harder to fingerprint, and
-provides a forward secrecy mode.
+simpler packet format, which should be much harder to fingerprint and
+also provides a forward secrecy mode.
 
 Installation
 
@@ -24,6 +24,32 @@ Design goals:
  2. provide similar functionality to PGP
  3. be extensible
  4. difficult to identify based on fingerprinting
+ 5. provide extensive testing
+ 6. strive for security
+
+Extensibility
+
+using pbp and the underlying pysodium library it's easy to extend pbp.
+Two examples are the experimental forward secrecy mode (see
+description in docs/chaining-dh.txt) and the support for ECDH key
+exchanges from the command-line.
+
+Fingerprinting
+
+pbp tries to avoid to store any sensitive plaintext info, the
+encrypted files all should look like random noise.
+
+Testing
+
+All py files come with their internal tests, unit tests are in
+tests.py, and commandline functionality is tested in test.sh.
+
+Security
+
+pbp locks the process memory, so it cannot be swapped to disk. Also
+pbp tries to overwrite sensitive key material after usage in memory,
+so it can only be briefly dumped.
+
 
 Usage:
 
