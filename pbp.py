@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
@@ -417,13 +417,13 @@ def main():
 
     # list public keys
     elif opts.action=='l':
-        for i in getpkeys(opts.basedir):
+        for i in publickey.get_public_keys(opts.basedir):
             print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
                    else 'invalid'), i.keyid(), i.name
 
     # list secret keys
     elif opts.action=='L':
-        for i in getskeys(opts.basedir):
+        for i in publickey.get_secret_keys(opts.basedir):
             print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
                    else 'invalid'), i.keyid(), i.name
 
