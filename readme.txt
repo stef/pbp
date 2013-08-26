@@ -88,7 +88,7 @@ sending howdy.txt using secret key encryption
 
    pbp.py -c -i howdy.txt
 
-decrypt an encrypted flie using secret key crypto
+decrypt an encrypted file using secret key crypto
 
    pbp.py -d -i howdy.txt.pbp
 
