@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 import pysodium as nacl, scrypt # external dependencies
 import os, stat,  getpass, datetime, sys, struct, binascii
-from itertools import imap
+try:
+    from itertools import imap
+except:
+    imap = map
 from utils import split_by_n, b85encode, b85decode
 from SecureString import clearmem
 import pbp
