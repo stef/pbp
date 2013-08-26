@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 import pysodium as nacl, scrypt # external dependencies
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 from itertools import imap
@@ -24,7 +24,7 @@ def getkey(l, pwd='', empty=False, text=''):
     pwd2 = not pwd
     if not pwd:
         if _prev_passphrase:
-            print >>sys.stderr, "press enter to reuse the previous passphrase"
+            sys.stderr.write("press enter to reuse the previous passphrase")
         while pwd != pwd2 or (not empty and not pwd.strip()):
             pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
             if pwd.strip():
@@ -119,7 +119,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     # asym
     if type == ASYM_CIPHER:
         if not self:
-            print >>sys.stderr, "Error: need to specify your own key using the --self param"
+            sys.stderr.write("Error: need to specify your own key using the --self param")
             raise ValueError
         size = struct.unpack('>L',fd.read(4))[0]
         r = []
@@ -131,29 +131,29 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         me.clear()
         sender, key = me.keydecrypt(r)
         if sender:
-            print >>sys.stderr, 'good key from', sender
+            sys.stderr.write('good key from', sender)
         else:
-            print >>sys.stderr, 'decryption failed'
+            sys.stderr.write('decryption failed')
     # sym
     elif type == BLOCK_CIPHER:
         pwd = getpass.getpass('Passphrase for decrypting: ')
         key =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
         clearmem(pwd)
     else:
-        print >>sys.stderr,  'decryption failed'
+        sys.stderr.write( 'decryption failed')
 
     if key:
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         while len(nonce) == nacl.crypto_secretbox_NONCEBYTES:
             buf = fd.read(BLOCK_SIZE)
             if not buf:
-                print >>sys.stderr, 'decryption failed'
+                sys.stderr.write('decryption failed')
                 break
             outfd.write(decrypt((nonce, buf), k = key))
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         clearmem(key)
         if 0 < len(nonce) < nacl.crypto_secretbox_NONCEBYTES:
-            print >>sys.stderr, 'decryption failed'
+            sys.stderr.write('decryption failed')
 
     if infile != sys.stdin: fd.close()
     if outfile != sys.stdout: outfd.close()
@@ -228,9 +228,9 @@ def verify_handler(infile=None, outfile=None, basedir=None):
 
     sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
     if sender and hashsum == hashsum1:
-        print >>sys.stderr, "good message from", sender
+        sys.stderr.write("good message from", sender)
     else:
-        print >>sys.stderr, 'verification failed'
+        sys.stderr.write('verification failed')
 
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout: outfd.close()
@@ -243,7 +243,7 @@ def keysign_handler(name=None, self=None, basedir=None):
         me = publickey.Identity(self, basedir=basedir)
         sig = me.sign(data, master=True)
         if not sig:
-            print >>sys.stderr, 'signature failed'
+            sys.stderr.write('signature failed')
         me.clear()
         fd.write(sig[:nacl.crypto_sign_BYTES])
 
@@ -263,13 +263,13 @@ def keycheck_handler(name=None, basedir=None):
         if res:
             sigs.append(res[0])
         i+=1
-    print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
+    sys.stderr.write('good signatures on', name, 'from', ', '.join(sigs))
 
 def export_handler(self, basedir=None):
     keys = publickey.Identity(self, basedir=basedir)
     pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
     keys.clear()
-    print b85encode(pkt)
+    print(b85encode(pkt))
 
 def import_handler(infile=None, basedir=None):
     if not infile:
@@ -289,7 +289,7 @@ def import_handler(infile=None, basedir=None):
     peer.sp = keys[nacl.crypto_sign_PUBLICKEYBYTES*2:nacl.crypto_sign_PUBLICKEYBYTES*3]
     # TODO check if key exists, then ask for confirmation of pk overwrite
     peer.save()
-    print 'Success: imported public keys for', name
+    print('Success: imported public keys for', name)
 
 def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
     if not infile: infile = sys.stdin
@@ -329,7 +329,7 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
         if not nonce:
             break
         if len(nonce) != nacl.crypto_secretbox_NONCEBYTES:
-            print >>sys.stderr, 'decryption failed'
+            sys.stderr.write('decryption failed')
             return
         ct = fd.read(BLOCK_SIZE+16)
         msg = ctx.decrypt(ct,nonce)
@@ -341,22 +341,22 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
 def dh1_handler():
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
-    print "public component", b85encode(public)
-    print "secret exponent", b85encode(exp)
+    print("public component", b85encode(public))
+    print("secret exponent", b85encode(exp))
     clearmem(exp)
 
 def dh2_handler(peer):
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
-    print "public component", b85encode(public)
+    print("public component", b85encode(public))
     secret = nacl.crypto_scalarmult_curve25519(exp, b85decode(peer))
-    print "shared secret", b85encode(secret)
+    print("shared secret", b85encode(secret))
     clearmem(secret)
     clearmem(exp)
 
 def dh3_handler(public, exp):
     secret = nacl.crypto_scalarmult_curve25519(b85decode(exp), b85decode(public))
-    print "shared secret", b85encode(secret)
+    print("shared secret", b85encode(secret))
     clearmem(secret)
 
 def random_stream_handler(outfile = None, size = None):
@@ -571,7 +571,7 @@ def ensure_size_good(opts):
             die("Error: need to specify an float after -Rs <float><[K|M|G|T]>")
 
 def die(msg):
-    print >>sys.stderr, msg
+    sys.stderr.write(msg)
     sys.exit(1)
 
 if __name__ == '__main__':

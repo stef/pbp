@@ -1,68 +1,68 @@
 #!/usr/bin/env python
 
 import pysodium as nacl
-from base85 import b85encode
+from utils import b85encode
 
 def _2user():
     # 1st user
     exp1 = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public1 = nacl.crypto_scalarmult_curve25519_base(exp1)
     #print "public1:    \t%s\nexp1:    \t%s" % (b85encode(public1), b85encode(exp1))
-    print
+    print()
     # 2nd user
     exp2 = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public2 = nacl.crypto_scalarmult_curve25519_base(exp2)
     key = nacl.crypto_scalarmult_curve25519(exp2, public1)
-    print "key:    \t%s" % (b85encode(key))
+    print("key:    \t%s" % (b85encode(key)))
     #print "public2:    \t%s\nkey:    \t%s" % (b85encode(public2), b85encode(key))
-    print
+    print()
     # 1st user completing DH
     key = nacl.crypto_scalarmult_curve25519(exp1, public2)
-    print "key:    \t%s" % (b85encode(key))
+    print("key:    \t%s" % (b85encode(key)))
 
 def _3user():
     eA = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     pA = nacl.crypto_scalarmult_curve25519_base(eA)
-    print "A public:    \t%s\nA exp:    \t%s" % (b85encode(pA), b85encode(eA))
+    print("A public:    \t%s\nA exp:    \t%s" % (b85encode(pA), b85encode(eA)))
 
     eB = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     pB = nacl.crypto_scalarmult_curve25519_base(eB)
-    print "B public:    \t%s\nB exp:    \t%s" % (b85encode(pB), b85encode(eB))
+    print("B public:    \t%s\nB exp:    \t%s" % (b85encode(pB), b85encode(eB)))
 
     eC = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     pC = nacl.crypto_scalarmult_curve25519_base(eC)
-    print "C public:    \t%s\nC exp:    \t%s" % (b85encode(pC), b85encode(eC))
+    print("C public:    \t%s\nC exp:    \t%s" % (b85encode(pC), b85encode(eC)))
 
-    print
+    print()
     pAB = nacl.crypto_scalarmult_curve25519(eB, pA)
-    print "public AB", b85encode(pAB)
+    print("public AB", b85encode(pAB))
     pBA = nacl.crypto_scalarmult_curve25519(eA, pB)
-    print "public BA", b85encode(pBA)
+    print("public BA", b85encode(pBA))
     pCA = nacl.crypto_scalarmult_curve25519(eA, pC)
-    print "public CA", b85encode(pCA)
+    print("public CA", b85encode(pCA))
 
-    print
+    print()
     key = nacl.crypto_scalarmult_curve25519(eB, pCA)
-    print "key:    \t%s" % (b85encode(key))
+    print("key:    \t%s" % (b85encode(key)))
     key = nacl.crypto_scalarmult_curve25519(eC, pBA)
-    print "key:    \t%s" % (b85encode(key))
+    print("key:    \t%s" % (b85encode(key)))
     key = nacl.crypto_scalarmult_curve25519(eC, pAB)
-    print "key:    \t%s" % (b85encode(key))
+    print("key:    \t%s" % (b85encode(key)))
 
 def test():
-    print '-' * 90
-    print ' '*30, '2 user DH test'
-    print
+    print('-' * 90)
+    print(' '*30, '2 user DH test')
+    print()
     _2user()
 
-    print '-' * 90
-    print ' '*30, '3 user DH test'
-    print
+    print('-' * 90)
+    print(' '*30, '3 user DH test')
+    print()
     _3user()
 
-    print '-' * 90
-    print ' '*30, 'multi-party ECDH'
-    print
+    print('-' * 90)
+    print(' '*30, 'multi-party ECDH')
+    print()
     ECDH.mpecdh([ECDH() for _ in range(9)])
 
 class ECDH:
@@ -103,7 +103,7 @@ class ECDH:
         half2=peers[len(peers)/2:]
         half1[1].MPDH(half1[0].public, 2, half1, half2)
         half2[1].MPDH(half2[0].public, 2, half2, half1)
-        print '\n'.join(map(str,peers))
+        print('\n'.join(map(str,peers)))
 
 if __name__ == '__main__':
     print "-" * 80

@@ -97,7 +97,7 @@ def lockmem():
    try:
      libc = ctypes.CDLL("libc.so.6")
    except EnvironmentError, err:
-       print >>sys.stderr, "cannot lock memory"
+       sys.stderr.write("cannot lock memory")
        return
    if libc.mlockall(_MCL_CURRENT | _MCL_FUTURE):
-       print >>sys.stderr, "cannot lock memory"
+       sys.stderr.write( "cannot lock memory")
