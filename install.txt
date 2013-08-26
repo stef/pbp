@@ -21,6 +21,7 @@ curl https://download.libsodium.org/libsodium/releases/LATEST.tar.gz | tar xz ||
 cd libsodium-* || exit 1
 ./configure || exit 1
 make && make check && sudo make install || exit 1
+ldconfig
 cd ..
 rm -rf libsodium-* || exit 1
 
