@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import pysodium as nacl, scrypt # external dependencies
+from SecureString import clearmem # external dependency
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
-try:
+try: # cthulhu bless py3
     from itertools import imap
 except:
     imap = map
@@ -26,7 +27,7 @@ def getkey(l, pwd='', empty=False, text=''):
     pwd2 = not pwd
     if not pwd:
         if _prev_passphrase:
-            sys.stderr.write("press enter to reuse the previous passphrase")
+            sys.stderr.write("press enter to reuse the previous passphrase\n")
         while pwd != pwd2 or (not empty and not pwd.strip()):
             pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
             if pwd.strip():
@@ -121,7 +122,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     # asym
     if type == ASYM_CIPHER:
         if not self:
-            sys.stderr.write("Error: need to specify your own key using the --self param")
+            sys.stderr.write("Error: need to specify your own key using the --self param\n")
             raise ValueError
         size = struct.unpack('>L',fd.read(4))[0]
         r = []
@@ -133,29 +134,29 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         me.clear()
         sender, key = me.keydecrypt(r)
         if sender:
-            sys.stderr.write('good key from %s' % sender)
+            sys.stderr.write('good key from %s\n' % sender)
         else:
-            sys.stderr.write('decryption failed')
+            sys.stderr.write('decryption failed\n')
     # sym
     elif type == BLOCK_CIPHER:
         pwd = getpass.getpass('Passphrase for decrypting: ')
         key =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
         clearmem(pwd)
     else:
-        sys.stderr.write( 'decryption failed')
+        sys.stderr.write( 'decryption failed\n')
 
     if key:
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         while len(nonce) == nacl.crypto_secretbox_NONCEBYTES:
             buf = fd.read(BLOCK_SIZE)
             if not buf:
-                sys.stderr.write('decryption failed')
+                sys.stderr.write('decryption failed\n')
                 break
             outfd.write(decrypt((nonce, buf), k = key))
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         clearmem(key)
         if 0 < len(nonce) < nacl.crypto_secretbox_NONCEBYTES:
-            sys.stderr.write('decryption failed')
+            sys.stderr.write('decryption failed\n')
 
     if infile != sys.stdin: fd.close()
     if outfile != sys.stdout: outfd.close()
@@ -231,9 +232,9 @@ def verify_handler(infile=None, outfile=None, basedir=None):
 
     sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
     if sender and hashsum == hashsum1:
-        sys.stderr.write("good message from %s" % sender)
+        sys.stderr.write("good message from %s\n" % sender)
     else:
-        sys.stderr.write('verification failed')
+        sys.stderr.write('verification failed\n')
 
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout: outfd.close()
@@ -246,7 +247,7 @@ def keysign_handler(name=None, self=None, basedir=None):
         me = publickey.Identity(self, basedir=basedir)
         sig = me.sign(data, master=True)
         if not sig:
-            sys.stderr.write('signature failed')
+            sys.stderr.write('signature failed\n')
         me.clear()
         fd.write(sig[:nacl.crypto_sign_BYTES])
 
@@ -266,7 +267,7 @@ def keycheck_handler(name=None, basedir=None):
         if res:
             sigs.append(res[0])
         i+=1
-    sys.stderr.write('good signatures on %s from %s' % (name, ', '.join(sigs)))
+    sys.stderr.write('good signatures on %s from %s\n' % (name, ', '.join(sigs)))
 
 def export_handler(self, basedir=None):
     keys = publickey.Identity(self, basedir=basedir)
@@ -332,7 +333,7 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
         if not nonce:
             break
         if len(nonce) != nacl.crypto_secretbox_NONCEBYTES:
-            sys.stderr.write('decryption failed')
+            sys.stderr.write('decryption failed\n')
             return
         ct = fd.read(BLOCK_SIZE+16)
         msg = ctx.decrypt(ct,nonce)
@@ -582,9 +583,6 @@ if __name__ == '__main__':
         sys.stdin = sys.stdin.detach()
         sys.stdout = sys.stdout.detach()
         long = int
-        def clearmem(buf): return
-    else:
-        from SecureString import clearmem
     lockmem()
     main()
     clearmem(_prev_passphrase)
