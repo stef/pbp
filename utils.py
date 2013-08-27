@@ -28,7 +28,7 @@ def b85encode(text, pad=False):
     l = len(text)
     r = l % 4
     if r:
-        text += '\0' * (4 - r)
+        text += b'\0' * (4 - r)
     longs = len(text) >> 2
     out = []
     words = struct.unpack('>%dL' % (longs), text)
@@ -47,7 +47,7 @@ def b85encode(text, pad=False):
 
         out += (a, b, c, d, e)
 
-    out = ''.join(out)
+    out = b''.join(out)
     if pad:
         return out
 
