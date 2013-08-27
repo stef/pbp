@@ -35,15 +35,15 @@ def b85encode(text, pad=False):
     for word in words:
         # unrolling improved speed by 33%
         word, r = divmod(word, 85)
-        e = _b85chars[r]
+        e = _b85chars[r].encode()
         word, r = divmod(word, 85)
-        d = _b85chars[r]
+        d = _b85chars[r].encode()
         word, r = divmod(word, 85)
-        c = _b85chars[r]
+        c = _b85chars[r].encode()
         word, r = divmod(word, 85)
-        b = _b85chars[r]
+        b = _b85chars[r].encode()
         word, r = divmod(word, 85)
-        a = _b85chars[r]
+        a = _b85chars[r].encode()
 
         out += (a, b, c, d, e)
 
@@ -56,7 +56,7 @@ def b85encode(text, pad=False):
     if olen:
         olen += 1
     olen += l / 4 * 5
-    return out[:olen]
+    return out[:int(olen)]
 
 def b85decode(text):
     """decode base85-encoded text"""

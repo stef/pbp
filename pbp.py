@@ -345,22 +345,22 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
 def dh1_handler():
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
-    print("public component", b85encode(public))
-    print("secret exponent", b85encode(exp))
+    (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout).write(b"public component "+ b85encode(public) + b'\n')
+    (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout).write(b"secret exponent " + b85encode(exp) + b'\n')
     clearmem(exp)
 
 def dh2_handler(peer):
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
-    print("public component", b85encode(public))
+    (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout).write(b"public component " + b85encode(public) + b'\n')
     secret = nacl.crypto_scalarmult_curve25519(exp, b85decode(peer))
-    print("shared secret", b85encode(secret))
+    (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout).write(b"shared secret " + b85encode(secret) + b'\n')
     clearmem(secret)
     clearmem(exp)
 
 def dh3_handler(public, exp):
     secret = nacl.crypto_scalarmult_curve25519(b85decode(exp), b85decode(public))
-    print("shared secret", b85encode(secret))
+    (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout).write(b"shared secret " + b85encode(secret) + b'\n')
     clearmem(secret)
 
 def random_stream_handler(outfile = None, size = None):
