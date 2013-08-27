@@ -8,7 +8,7 @@ import pysodium as nacl, scrypt # external dependencies
 try:
     from SecureString import clearmem # external dependency
 except:
-    (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout).write(b"Cannot clear sensitive memory")
+    (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout).write(b"Cannot clear sensitive memory\n")
     def clearmem(_): return
 from utils import split_by_n, b85encode, b85decode, lockmem
 import chaining, publickey
