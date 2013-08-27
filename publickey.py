@@ -6,7 +6,10 @@ try:
 except:
     imap = map
 from utils import split_by_n, b85encode, b85decode
-from SecureString import clearmem
+try:
+    from SecureString import clearmem # external dependency
+except:
+    def clearmem(_): return
 import pbp
 
 class Identity(object):
