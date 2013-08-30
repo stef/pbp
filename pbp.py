@@ -183,11 +183,8 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     sig = me.sign(hashsum)[:nacl.crypto_sign_BYTES]
     me.clear()
     if armor:
-        signed = "%s%s" % (SIGPREFIX, b85encode(sig))
-    if armor and not outfile:
-        sys.stdout.write(signed)
-    else:
-        outfd.write(sig)
+        sig = "%s%s" % (SIGPREFIX, b85encode(sig))
+    outfd.write(sig)
 
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout: outfd.close()
