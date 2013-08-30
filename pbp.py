@@ -73,7 +73,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         fd = open(infile,'rb')
 
     if outfile == '-':
-        outfd = sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout
+        outfd = sys.stdout
     else:
         outfd = open(outfile or infile+'.pbp','wb')
 
@@ -113,7 +113,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     else:
         fd = open(infile,'rb')
     if not outfile or outfile == '-':
-        outfd = sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout
+        outfd = sys.stdout
     else:
         outfd = open(outfile,'wb')
 
@@ -201,7 +201,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     else:
         fd = open(infile,'rb')
     if not outfile or outfile == '-':
-        outfd = sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout
+        outfd = sys.stdout
     else:
         outfd = open(outfile,'wb')
 
@@ -318,7 +318,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
 
 def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     fd = sys.stdin if not infile else open(infile,'rb')
-    outfd = (sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout) if not outfile else open(outfile, 'wb')
+    outfd = sys.stdout if not outfile else open(outfile, 'wb')
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
     blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
@@ -366,7 +366,7 @@ def dh3_handler(public, exp):
 
 def random_stream_handler(outfile = None, size = None):
     bsize = 2**16
-    outfd = (sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout) if not outfile else open(outfile, 'wb')
+    outfd = sys.stdout if not outfile else open(outfile, 'wb')
     if not size:
         while True:
             # write endlessly
