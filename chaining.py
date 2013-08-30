@@ -81,7 +81,7 @@ class ChainingContext(object):
                      self.in_prev))
         if not self.me_id:
             self.me_id = publickey.Identity(self.me, basedir=self.basedir)
-        with open(fname,'wb') as fd:
+        with open(fname,'w') as fd:
             fd.write(nonce)
             fd.write(nacl.crypto_box(ctx, nonce, self.me_id.cp, self.me_id.cs))
 
