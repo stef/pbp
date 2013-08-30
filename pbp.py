@@ -68,7 +68,7 @@ def decrypt(pkt, pwd=None, basedir=None, k=None):
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+        fd = sys.stdin
     else:
         fd = open(infile,'rb')
 
@@ -109,7 +109,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
 
 def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+        fd = sys.stdin
     else:
         fd = open(infile,'rb')
     if not outfile or outfile == '-':
@@ -163,7 +163,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
 
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
     if not infile or infile == '-':
-        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+        fd = sys.stdin
     else:
         fd = open(infile,'rb')
 
@@ -197,7 +197,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
 
 def verify_handler(infile=None, outfile=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+        fd = sys.stdin
     else:
         fd = open(infile,'rb')
     if not outfile or outfile == '-':
@@ -317,7 +317,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     fd.close()
 
 def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
-    fd = (sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin) if not infile else open(infile,'rb')
+    fd = sys.stdin if not infile else open(infile,'rb')
     outfd = (sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout) if not outfile else open(outfile, 'wb')
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
