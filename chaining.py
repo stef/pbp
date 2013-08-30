@@ -49,7 +49,7 @@ class ChainingContext(object):
             return self
         if not self.me_id:
             self.me_id = publickey.Identity(self.me, basedir=self.basedir)
-        with open(keyfname,'rb') as fd:
+        with open(keyfname,'r') as fd:
             nonce = fd.read(nacl.crypto_box_NONCEBYTES)
             plain =  nacl.crypto_box_open(fd.read(), nonce, self.me_id.cp, self.me_id.cs)
         c=nacl.crypto_scalarmult_curve25519_BYTES

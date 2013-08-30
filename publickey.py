@@ -73,7 +73,7 @@ class Identity(object):
 
     def loadkey(self, type):
         if type in ['mp','cp','sp', 'created', 'valid']:
-            with open(get_pk_filename(self.basedir, self.name), 'rb') as fd:
+            with open(get_pk_filename(self.basedir, self.name), 'r') as fd:
                 tmp=fd.read()
             mk=tmp[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
             tmp = nacl.crypto_sign_open(tmp, mk)
