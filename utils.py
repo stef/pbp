@@ -71,7 +71,7 @@ def b85decode(text):
         for j in range(len(chunk)):
             try:
                 acc = acc * 85 + _b85dec[chunk[j]]
-            except (KeyError):
+            except KeyError:
                 raise TypeError('Bad base85 character at byte %d' % (i + j))
         if acc > 4294967295:
             raise OverflowError('Base85 overflow in hunk starting at byte %d' % i)
@@ -96,7 +96,7 @@ _MCL_FUTURE = 2
 def lockmem():
    try:
      libc = ctypes.CDLL("libc.so.6")
-   except(EnvironmentError):
+   except EnvironmentError, err:
        sys.stderr.write("cannot lock memory")
        return
    if libc.mlockall(_MCL_CURRENT | _MCL_FUTURE):
