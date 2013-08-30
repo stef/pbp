@@ -280,7 +280,7 @@ def import_handler(infile=None, basedir=None):
     if not infile:
         b85 = sys.stdin.readline().strip()
     else:
-        with open(infile, 'rb') as fd:
+        with file(infile) as fd:
             b85 = fd.readline().strip()
     pkt = b85decode(b85)
     mp = pkt[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]

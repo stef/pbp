@@ -99,7 +99,7 @@ class Identity(object):
                 self.ms = self.decrypt_with_user_pw(tmp, 'master key')
 
     def decrypt_with_user_pw(self, filename, pw_for):
-        with open(filename, 'rb') as fd:
+        with file(filename) as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             prompt = 'Passphrase for decrypting {0} for {1}: '.format(pw_for, self.name)
             k = scrypt.hash(getpass.getpass(prompt), pbp.scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
