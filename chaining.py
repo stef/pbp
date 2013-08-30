@@ -19,10 +19,7 @@
 
 import pysodium as nacl, os
 from utils import b85encode
-try:
-    from SecureString import clearmem # external dependency
-except:
-    def clearmem(_): return
+from SecureString import clearmem
 import publickey
 
 class ChainingContext(object):
