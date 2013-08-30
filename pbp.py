@@ -68,12 +68,12 @@ def decrypt(pkt, pwd=None, basedir=None, k=None):
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+        fd = sys.stdin
     else:
         fd = open(infile,'rb')
 
     if outfile == '-':
-        outfd = sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout
+        outfd = sys.stdout
     else:
         outfd = open(outfile or infile+'.pbp','wb')
 
@@ -109,11 +109,11 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
 
 def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+        fd = sys.stdin
     else:
         fd = open(infile,'rb')
     if not outfile or outfile == '-':
-        outfd = sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout
+        outfd = sys.stdout
     else:
         outfd = open(outfile,'wb')
 
@@ -163,12 +163,12 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
 
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
     if not infile or infile == '-':
-        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+        fd = sys.stdin
     else:
         fd = open(infile,'rb')
 
     if (not outfile and armor) or outfile == '-':
-        outfd = sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout
+        outfd = sys.stdout
     else:
         outfd = open(outfile or infile+'.sig','wb')
 
@@ -196,11 +196,11 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
 
 def verify_handler(infile=None, outfile=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+        fd = sys.stdin
     else:
         fd = open(infile,'rb')
     if not outfile or outfile == '-':
-        outfd = sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout
+        outfd = sys.stdout
     else:
         outfd = open(outfile,'wb')
 
@@ -296,7 +296,7 @@ def import_handler(infile=None, basedir=None):
     print('Success: imported public keys for', name)
 
 def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
-    if not infile: infile = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
+    if not infile: infile = sys.stdin
     output_filename = outfile if outfile else infile + '.pbp'
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
@@ -317,7 +317,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
 
 def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     fd = sys.stdin if not infile else open(infile,'rb')
-    outfd = (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout) if not outfile else open(outfile, 'wb')
+    outfd = sys.stdout if not outfile else open(outfile, 'wb')
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
     blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
@@ -365,7 +365,7 @@ def dh3_handler(public, exp):
 
 def random_stream_handler(outfile = None, size = None):
     bsize = 2**16
-    outfd = (sys.stdout.buffer if hasattr(sys.stdout,'buffer') else sys.stdout) if not outfile else open(outfile, 'wb')
+    outfd = sys.stdout if not outfile else open(outfile, 'wb')
     if not size:
         while True:
             # write endlessly
@@ -580,8 +580,9 @@ def die(msg):
 
 if __name__ == '__main__':
     if sys.version > '3':
+        sys.stdin = sys.stdin.detach()
+        sys.stdout = sys.stdout.detach()
         long = int
-        def clearmem(buf): return
     lockmem()
     main()
     clearmem(_prev_passphrase)
