@@ -1,14 +1,11 @@
 #!/usr/bin/env python
+import pysodium as nacl, scrypt # external dependencies
+from SecureString import clearmem # external dependency
 import argparse, os, stat,  getpass, datetime, sys, struct, binascii
 try: # cthulhu bless py3
     from itertools import imap
 except:
     imap = map
-import pysodium as nacl, scrypt # external dependencies
-try:
-    from SecureString import clearmem # external dependency
-except:
-    def clearmem(_): return
 from utils import split_by_n, b85encode, b85decode, lockmem
 import chaining, publickey
 
