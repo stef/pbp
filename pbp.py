@@ -11,7 +11,7 @@ import chaining, publickey
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
-SIGPREFIX = b'\nnacl-'
+SIGPREFIX = '\nnacl-'
 BLOCK_SIZE = 1024*1024
 
 defaultbase='~/.pbp'
@@ -68,12 +68,12 @@ def decrypt(pkt, pwd=None, basedir=None, k=None):
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin
+        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
     else:
         fd = open(infile,'rb')
 
     if outfile == '-':
-        outfd = sys.stdout
+        outfd = sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout
     else:
         outfd = open(outfile or infile+'.pbp','wb')
 
@@ -109,11 +109,11 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
 
 def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin
+        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
     else:
         fd = open(infile,'rb')
     if not outfile or outfile == '-':
-        outfd = sys.stdout
+        outfd = sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout
     else:
         outfd = open(outfile,'wb')
 
@@ -163,7 +163,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
 
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
     if not infile or infile == '-':
-        fd = sys.stdin
+        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
     else:
         fd = open(infile,'rb')
 
@@ -186,8 +186,9 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     sig = me.sign(hashsum)[:nacl.crypto_sign_BYTES]
     me.clear()
     if armor:
-        outfd.write(SIGPREFIX)
-        outfd.write(b85encode(sig))
+        signed = "%s%s" % (SIGPREFIX, b85encode(sig))
+    if armor and not outfile:
+        sys.stdout.write(signed)
     else:
         outfd.write(sig)
 
@@ -196,11 +197,11 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
 
 def verify_handler(infile=None, outfile=None, basedir=None):
     if not infile or infile == '-':
-        fd = sys.stdin
+        fd = sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin
     else:
         fd = open(infile,'rb')
     if not outfile or outfile == '-':
-        outfd = sys.stdout
+        outfd = sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout
     else:
         outfd = open(outfile,'wb')
 
@@ -212,19 +213,19 @@ def verify_handler(infile=None, outfile=None, basedir=None):
         # sigs spanning block boundaries
         if len(block)==(BLOCK_SIZE/2):
             next=fd.read(int(BLOCK_SIZE/2))
-        else: next=b''
+        else: next=''
 
-        fullblock = block+next
+        fullblock = "%s%s" % (block, next)
         sigoffset = fullblock.rfind(SIGPREFIX)
 
         if 0 <= sigoffset <= (BLOCK_SIZE/2):
             sig = b85decode(fullblock[sigoffset+len(SIGPREFIX):])
             block = block[:sigoffset]
-            next = b''
+            next = ''
         elif len(fullblock)<(BLOCK_SIZE/2)+nacl.crypto_sign_BYTES:
             sig = fullblock[-nacl.crypto_sign_BYTES:]
             block = fullblock[:-nacl.crypto_sign_BYTES]
-            next = b''
+            next = ''
         state = nacl.crypto_generichash_update(state, block)
         if outfd: outfd.write(block)
         block = next
@@ -243,7 +244,7 @@ def keysign_handler(name=None, self=None, basedir=None):
     fname = publickey.get_pk_filename(basedir, name)
     with open(fname,'rb') as fd:
         data = fd.read()
-    with open(fname+'.sig','ab') as fd:
+    with open(fname+'.sig','a') as fd:
         me = publickey.Identity(self, basedir=basedir)
         sig = me.sign(data, master=True)
         if not sig:
@@ -316,8 +317,8 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     fd.close()
 
 def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
-    fd = sys.stdin if not infile else open(infile,'rb')
-    outfd = sys.stdout if not outfile else open(outfile, 'wb')
+    fd = (sys.stdin.buffer if hasattr(sys.stdin,'buffer') else sys.stdin) if not infile else open(infile,'rb')
+    outfd = (sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout) if not outfile else open(outfile, 'wb')
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
     blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
@@ -365,7 +366,7 @@ def dh3_handler(public, exp):
 
 def random_stream_handler(outfile = None, size = None):
     bsize = 2**16
-    outfd = sys.stdout if not outfile else open(outfile, 'wb')
+    outfd = (sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout) if not outfile else open(outfile, 'wb')
     if not size:
         while True:
             # write endlessly
@@ -579,10 +580,6 @@ def die(msg):
     sys.exit(1)
 
 if __name__ == '__main__':
-    if sys.version > '3':
-        sys.stdin = sys.stdin.detach()
-        sys.stdout = sys.stdout.detach()
-        long = int
     lockmem()
     main()
     clearmem(_prev_passphrase)
