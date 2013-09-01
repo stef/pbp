@@ -59,7 +59,7 @@ class TestPBP(unittest.TestCase):
     def test_encrypt_sym_fail(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
         with self.assertRaises(ValueError):
-            pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
+            pbp.decrypt(encrypted, pwd=PASSWORD)
 
     #def test_encrypt_sym_stream_pwprompt(self):
     #    encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD, stream=True)
@@ -68,7 +68,7 @@ class TestPBP(unittest.TestCase):
 
     def test_encrypt_sym_pwprompt(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
-        decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
+        decrypted = pbp.decrypt(encrypted)
         self.assertEquals(decrypted, MESSAGE)
 
     #def test_encrypt_sym_stream(self):
@@ -78,7 +78,7 @@ class TestPBP(unittest.TestCase):
 
     def test_encrypt_sym(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
-        decrypted = pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
+        decrypted = pbp.decrypt(encrypted, pwd=PASSWORD)
         self.assertEquals(decrypted, MESSAGE)
 
     def test_encrypt_recipient(self):

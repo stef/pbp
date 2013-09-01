@@ -1,8 +1,7 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
-import argparse, os, stat,  getpass, datetime, sys, struct, binascii
-from itertools import imap
-from utils import split_by_n, b85encode, b85decode, lockmem
+import argparse, os, getpass, datetime, sys, struct
+from utils import b85encode, b85decode, lockmem
 from SecureString import clearmem
 import chaining, publickey
 
@@ -19,6 +18,9 @@ _prev_passphrase = ''
 def getkey(l, pwd='', empty=False, text=''):
     # queries the user twice for a passphrase if neccessary, and
     # returns a scrypted key of length l
+    # allows empty passphrases if empty == True
+    # 'text' will be prepended to the password query
+    # will not query for a password if pwd != ''
     global _prev_passphrase
     clearpwd = (pwd.strip()=='')
     pwd2 = not pwd
@@ -33,7 +35,7 @@ def getkey(l, pwd='', empty=False, text=''):
                 pwd = _prev_passphrase
                 break
     #if isinstance(pwd2, str):
-        #clearmem(pwd2)
+    #   clearmem(pwd2)
     if pwd.strip():
         _prev_passphrase = pwd
         key = scrypt.hash(pwd, scrypt_salt)[:l]
@@ -41,7 +43,9 @@ def getkey(l, pwd='', empty=False, text=''):
         return key
 
 def encrypt(msg, pwd=None, k=None):
-    # symmetric
+    # encrypts a message symmetrically using crypto_secretbox
+    # k specifies an encryption key, which if not supplied, is derived from
+    # pwd which is queried from the user, if also not specified.
     nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
     cleark = (k is None)
     if not k:
@@ -50,8 +54,10 @@ def encrypt(msg, pwd=None, k=None):
     if cleark: clearmem(k)
     return (nonce, ciphertext)
 
-def decrypt(pkt, pwd=None, basedir=None, k=None):
-    # symmetric
+def decrypt(pkt, pwd=None, k=None):
+    # decrypts a message symmetrically using crypto_secretbox
+    # k specifies an encryption key, which if not supplied, is derived from
+    # pwd which is queried from the user, if also not specified.
     cleark = (pwd is None)
     clearpwd = (k is None)
     if not k:
@@ -64,6 +70,16 @@ def decrypt(pkt, pwd=None, basedir=None, k=None):
     return res
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
+    # provides a high level function to do encryption of files
+    # infile specifies the filename of the input file,
+    #        if '-' or not specified it uses stdin
+    # outfile specifies the filename of the output file, if not specified
+    #         it uses the same filename with '.pbp' appended
+    # recipient specifies the name of the recipient for using public key crypto
+    # self specifies the sender for signing the message using pk crypto
+    # basedir provides a root for the keystores needed for pk crypto
+    # if both self and recipient is specified pk crypto is used, otherwise symmetric
+    # this function also handles buffering.
     if not infile or infile == '-':
         fd = sys.stdin
     else:
@@ -101,10 +117,19 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         buf = fd.read(BLOCK_SIZE)
     clearmem(key)
 
-    if infile != sys.stdin: fd.close()
-    if outfile != sys.stdout: outfd.close()
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
 
 def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
+    # provides a high level function to do decryption of files
+    # infile specifies the filename of the input file,
+    #        if '-' or not specified it uses stdin
+    # outfile specifies the filename of the output file, if not specified
+    #         it uses the same filename with '.pbp' appended
+    # self specifies the recipient of the message for using pk crypto
+    # basedir provides a root for the keystores needed for pk crypto
+    # if self is specified pk crypto is used, otherwise symmetric
+    # this function also handles buffering.
     if not infile or infile == '-':
         fd = sys.stdin
     else:
@@ -155,16 +180,27 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         if 0 < len(nonce) < nacl.crypto_secretbox_NONCEBYTES:
             print >>sys.stderr, 'decryption failed'
 
-    if infile != sys.stdin: fd.close()
-    if outfile != sys.stdout: outfd.close()
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
 
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
+    # provides a high level function to sign files
+    # infile specifies the filename of the input file,
+    #        if '-' or not specified it uses stdin
+    # outfile specifies the filename of the output file,
+    #         if unspecified but armor is, or if '-' or
+    #         infile is unspecified, then it uses stdout
+    #         otherwise it appends '.sig' to infile
+    # armor instructs the function to output ascii 
+    # self specifies the sender for signing the message
+    # basedir provides a root for the keystores
+    # this function also handles buffering.
     if not infile or infile == '-':
         fd = sys.stdin
     else:
         fd = open(infile,'r')
 
-    if (not outfile and armor) or outfile == '-':
+    if (not outfile and armor) or outfile == '-' or (not infile or infile == '-'):
         outfd = sys.stdout
     else:
         outfd = open(outfile or infile+'.sig','w')
@@ -190,14 +226,23 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     if outfd != sys.stdout: outfd.close()
 
 def verify_handler(infile=None, outfile=None, basedir=None):
+    # provides a high level function to verify signed files
+    # infile specifies the filename of the input file,
+    #        if '-' or not specified it uses stdin
+    # outfile specifies the filename of the output file,
+    # basedir provides a root for the keystores
+    # this function also handles buffering.
     if not infile or infile == '-':
         fd = sys.stdin
     else:
         fd = open(infile,'r')
-    if not outfile or outfile == '-':
-        outfd = sys.stdout
+    if outfile:
+        if outfile == '-':
+            outfd = sys.stdout
+        else:
+            outfd = open(outfile,'w')
     else:
-        outfd = open(outfile,'w')
+        outfd = sys.stdout
 
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
@@ -235,6 +280,10 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     if outfd != sys.stdout: outfd.close()
 
 def keysign_handler(name=None, self=None, basedir=None):
+    # handles signing of keys using the master key
+    # name is the key to be signed
+    # self the signers name
+    # basedir the root for the keystore
     fname = publickey.get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         data = fd.read()
@@ -247,6 +296,9 @@ def keysign_handler(name=None, self=None, basedir=None):
         fd.write(sig[:nacl.crypto_sign_BYTES])
 
 def keycheck_handler(name=None, basedir=None):
+    # handles verifying signatures of keys
+    # name is the key to be verified
+    # basedir the root for the keystore
     fname = publickey.get_pk_filename(basedir, name)
     with open(fname,'r') as fd:
         pk = fd.read()
@@ -265,12 +317,14 @@ def keycheck_handler(name=None, basedir=None):
     print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
 
 def export_handler(self, basedir=None):
+    # exports key self from basedir, outputs to stdout, key is ascii armored
     keys = publickey.Identity(self, basedir=basedir)
     pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
     keys.clear()
     print b85encode(pkt)
 
 def import_handler(infile=None, basedir=None):
+    # imports ascii armored key from infile or stdin to basedir
     if not infile:
         b85 = sys.stdin.readline().strip()
     else:
@@ -290,15 +344,27 @@ def import_handler(infile=None, basedir=None):
     peer.save()
     print 'Success: imported public keys for', name
 
-def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None, armor=False):
-    if not infile: infile = sys.stdin
-    output_filename = outfile if outfile else infile + '.pbp'
+def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
+    # provides highlevel forward secure encryption send primitive for files
+    # for details see doc/chaining-dh.txt
+    # infile specifies the input file,
+    # outfile the filename of the output,
+    # self the sending parties name
+    # recipient the receiving peers name
+    # basedir the root directory used for key storage
+    if not infile or infile == '-':
+        inp = sys.stdin
+    else:
+        inp = open(infile,'r')
+    if outfile == '-' or (not infile or infile == '-'):
+        fd = sys.stdout
+    else:
+        fd = open(outfile or infile+'.pbp','w')
+
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
-    inp = open(infile, 'r')
     msg=inp.read(BLOCK_SIZE)
     cipher, nonce = ctx.send(msg)
-    fd = open(output_filename, 'w')
     while True:
         fd.write(nonce)
         fd.write(cipher)
@@ -307,12 +373,26 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
         cipher, nonce = ctx.encrypt(msg)
     ctx.save()
     ctx.clear()
-    if not infile: inp.close()
-    fd.close()
+    if inp != sys.stdin: inp.close()
+    if fd != sys.stdout: fd.close()
 
 def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
-    fd = sys.stdin if not infile else open(infile,'r')
-    outfd = sys.stdout if not outfile else open(outfile, 'w')
+    # provides highlevel forward secure deccryption receive primitive for files
+    # for details see doc/chaining-dh.txt
+    # infile specifies the input file,
+    # outfile the filename of the output,
+    # self the sending parties name
+    # recipient the receiving peers name
+    # basedir the root directory used for key storage
+    if not infile or infile == '-':
+        fd = sys.stdin
+    else:
+        fd = open(infile,'r')
+    if outfile == '-' or (not infile or infile == '-'):
+        outfd = sys.stdout
+    else:
+        outfd = open(outfile or infile+'.pbp','w')
+
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
     blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
@@ -334,10 +414,11 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
         msg = ctx.decrypt(ct,nonce)
     ctx.save()
     ctx.clear()
-    if infile: fd.close()
-    if outfile: outfd.close()
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
 
 def dh1_handler():
+    # provides a high level interface to start a DH key exchange
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
     print "public component", b85encode(public)
@@ -345,6 +426,9 @@ def dh1_handler():
     clearmem(exp)
 
 def dh2_handler(peer):
+    # provides a high level interface to receive a DH key exchange
+    # request peer contains the public component generated by the peer
+    # when initiating an DH exchange
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
     print "public component", b85encode(public)
@@ -354,16 +438,22 @@ def dh2_handler(peer):
     clearmem(exp)
 
 def dh3_handler(public, exp):
+    # finishes the 3 step DH key exchange by combining the public
+    # component of the peer, generated in the 2nd step by the peer,
+    # using the exponent generated when the exchange was initiated.
     secret = nacl.crypto_scalarmult_curve25519(b85decode(exp), b85decode(public))
     print "shared secret", b85encode(secret)
     clearmem(secret)
 
 def random_stream_handler(outfile = None, size = None):
+    # generates a stream of 'size' or if 'size' unspecified then
+    # infinite random bytes into outfile or stdout if outfile is
+    # unspecified.
     bsize = 2**16
     outfd = sys.stdout if not outfile else open(outfile, 'w')
     if not size:
         while True:
-            # write endlessly
+            # infinite write
             outfd.write(nacl.crypto_stream(bsize))
     i = 0
     size = long(size)
@@ -376,6 +466,7 @@ def random_stream_handler(outfile = None, size = None):
             break
 
 def main():
+    # main command line handler for pbp
     parser = argparse.ArgumentParser(description='pbp')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--gen-key',     '-g',  dest='action', action='store_const', const='g', help="generates a new key")
@@ -493,7 +584,6 @@ def main():
                         outfile=opts.outfile,
                         recipient=opts.recipient[0],
                         self=opts.self,
-                        armor=opts.armor,
                         basedir=opts.basedir)
 
     # forward decrypt
@@ -525,31 +615,38 @@ def main():
         random_stream_handler(opts.outfile, opts.size)
 
 def ensure_self_specified(opts):
+    # asserts that self is specified
     if not opts.self:
         die("Error: need to specify your own key using the --self param")
 
 def ensure_name_specified(opts):
+    # asserts that name is specified
     if not opts.name:
         die("Error: need to specify a key to operate on using the --name param")
 
 def ensure_recipient_specified(opts):
+    # asserts that recipient is specified
     if not opts.recipient:
         die("Error: need to specify a recipient to "
             "operate on using the --recipient param")
 
 def ensure_only_one_recipient(opts):
+    # asserts that only one recipient is specified
     if len(opts.recipient) > 1:
         die("Error: you can only PFS decrypt from one recipient.")
 
 def ensure_dhparam_specified(opts):
+    # asserts that dhparam is specified
     if not opts.dh_param:
         die("Error: need to specify the ECDH public parameter using the -Dp param")
 
 def ensure_dhexp_specified(opts):
+    # asserts that dhexp is specified
     if not opts.dh_exp:
         die("Error: need to specify your secret ECDH exponent using the -De param")
 
 def ensure_size_good(opts):
+    # asserts that size is specified, and expands any postfixes KMGT
     if opts.size:
         fact = 1
         if opts.size[-1] == 'K':
@@ -570,6 +667,7 @@ def ensure_size_good(opts):
             die("Error: need to specify an float after -Rs <float><[K|M|G|T]>")
 
 def die(msg):
+    # complains and dies
     print >>sys.stderr, msg
     sys.exit(1)
 
