@@ -22,7 +22,7 @@ def getkey(l, pwd='', empty=False, text=''):
     # 'text' will be prepended to the password query
     # will not query for a password if pwd != ''
     global _prev_passphrase
-    clearpwd = (pwd.strip()=='')
+    #clearpwd = (pwd.strip()=='')
     pwd2 = not pwd
     if not pwd:
         if _prev_passphrase:
@@ -46,6 +46,7 @@ def encrypt(msg, pwd=None, k=None):
     # encrypts a message symmetrically using crypto_secretbox
     # k specifies an encryption key, which if not supplied, is derived from
     # pwd which is queried from the user, if also not specified.
+    # returns a (nonce, ciphertext) tuple
     nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
     cleark = (k is None)
     if not k:
@@ -54,18 +55,29 @@ def encrypt(msg, pwd=None, k=None):
     if cleark: clearmem(k)
     return (nonce, ciphertext)
 
-def decrypt(pkt, pwd=None, k=None):
+def decrypt(pkt, pwd=None, k=None, retries=3):
     # decrypts a message symmetrically using crypto_secretbox
+    # pkt is a (nonce, ciphertext) tuple
     # k specifies an encryption key, which if not supplied, is derived from
     # pwd which is queried from the user, if also not specified.
     cleark = (pwd is None)
     clearpwd = (k is None)
-    if not k:
-        if not pwd:
-            pwd = getpass.getpass('Passphrase for decrypting: ')
-        k =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-        if clearpwd: clearmem(pwd)
-    res = nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
+    cnt=0
+    while cnt<retries:
+        if not k:
+            if not pwd:
+                pwd = getpass.getpass('Passphrase for decrypting: ')
+            k =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+            if clearpwd: clearmem(pwd)
+            pwd = None
+        try:
+            res = nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
+        except ValueError:
+            cnt += 1
+            if cleark: clearmem(k)
+            k = None
+            continue
+        break
     if cleark: clearmem(k)
     return res
 
