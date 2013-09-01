@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-import struct, ctypes, platform, sys
+import struct, ctypes, sys
 
 def split_by_n( seq, n ):
     """A generator to divide a sequence into chunks of n units.

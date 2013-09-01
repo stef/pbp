@@ -1,8 +1,8 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
-import os, stat,  getpass, datetime, sys, struct, binascii
+import os, stat,  getpass, datetime, binascii
 from itertools import imap
-from utils import split_by_n, b85encode, b85decode
+from utils import split_by_n, b85encode
 from SecureString import clearmem
 import pbp
 
@@ -141,7 +141,6 @@ class Identity(object):
         return None, None
 
     def decrypt(self, pkt):
-        source = None
         peer, key = self.keydecrypt(pkt[1])
         if key:
             return peer, nacl.crypto_secretbox_open(pkt[2], pkt[0], key)

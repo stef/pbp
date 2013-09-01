@@ -18,7 +18,6 @@
 # (C) 2013 by Stefan Marsiske, <s@ctrlc.hu>
 
 import pysodium as nacl, os
-from utils import b85encode
 from SecureString import clearmem
 import publickey
 
