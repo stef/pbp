@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
-import argparse, os, getpass, datetime, sys, struct
+import getpass, sys, struct
 from utils import b85encode, b85decode, lockmem
 from SecureString import clearmem
 import chaining, publickey
@@ -63,6 +63,7 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
     cleark = (pwd is None)
     clearpwd = (k is None)
     cnt=0
+    res = None
     while cnt<retries:
         if not k:
             if not pwd:
@@ -79,7 +80,8 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
             continue
         break
     if cleark: clearmem(k)
-    return res
+    if res:
+        return res
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     # provides a high level function to do encryption of files
@@ -280,16 +282,13 @@ def verify_handler(infile=None, outfile=None, basedir=None):
         state = nacl.crypto_generichash_update(state, block)
         if outfd: outfd.write(block)
         block = next
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
     hashsum = nacl.crypto_generichash_final(state)
 
     sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
     if sender and hashsum == hashsum1:
-        print >>sys.stderr, "good message from", sender
-    else:
-        print >>sys.stderr, 'verification failed'
-
-    if fd != sys.stdin: fd.close()
-    if outfd != sys.stdout: outfd.close()
+        return sender
 
 def keysign_handler(name=None, self=None, basedir=None):
     # handles signing of keys using the master key
@@ -302,10 +301,10 @@ def keysign_handler(name=None, self=None, basedir=None):
     with open(fname+'.sig','a') as fd:
         me = publickey.Identity(self, basedir=basedir)
         sig = me.sign(data, master=True)
-        if not sig:
-            print >>sys.stderr, 'signature failed'
-        me.clear()
-        fd.write(sig[:nacl.crypto_sign_BYTES])
+        if sig:
+            me.clear()
+            fd.write(sig[:nacl.crypto_sign_BYTES])
+            return fname+'.sig'
 
 def keycheck_handler(name=None, basedir=None):
     # handles verifying signatures of keys
@@ -326,14 +325,14 @@ def keycheck_handler(name=None, basedir=None):
         if res:
             sigs.append(res[0])
         i+=1
-    print >>sys.stderr, 'good signatures on', name, 'from', ', '.join(sigs)
+    return sigs
 
 def export_handler(self, basedir=None):
     # exports key self from basedir, outputs to stdout, key is ascii armored
     keys = publickey.Identity(self, basedir=basedir)
     pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
     keys.clear()
-    print b85encode(pkt)
+    return b85encode(pkt)
 
 def import_handler(infile=None, basedir=None):
     # imports ascii armored key from infile or stdin to basedir
@@ -346,7 +345,7 @@ def import_handler(infile=None, basedir=None):
     mp = pkt[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
     keys = nacl.crypto_sign_open(pkt, mp)
     if not keys:
-        die("invalid key")
+        return
     name = keys[nacl.crypto_sign_PUBLICKEYBYTES*3:]
     peer = publickey.Identity(name, basedir=basedir)
     peer.mp = mp
@@ -354,7 +353,7 @@ def import_handler(infile=None, basedir=None):
     peer.sp = keys[nacl.crypto_sign_PUBLICKEYBYTES*2:nacl.crypto_sign_PUBLICKEYBYTES*3]
     # TODO check if key exists, then ask for confirmation of pk overwrite
     peer.save()
-    print 'Success: imported public keys for', name
+    return name
 
 def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     # provides highlevel forward secure encryption send primitive for files
@@ -433,9 +432,7 @@ def dh1_handler():
     # provides a high level interface to start a DH key exchange
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
-    print "public component", b85encode(public)
-    print "secret exponent", b85encode(exp)
-    clearmem(exp)
+    return (exp, public)
 
 def dh2_handler(peer):
     # provides a high level interface to receive a DH key exchange
@@ -443,19 +440,15 @@ def dh2_handler(peer):
     # when initiating an DH exchange
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
-    print "public component", b85encode(public)
     secret = nacl.crypto_scalarmult_curve25519(exp, b85decode(peer))
-    print "shared secret", b85encode(secret)
-    clearmem(secret)
-    clearmem(exp)
+    return (public, secret)
 
 def dh3_handler(public, exp):
     # finishes the 3 step DH key exchange by combining the public
     # component of the peer, generated in the 2nd step by the peer,
     # using the exponent generated when the exchange was initiated.
     secret = nacl.crypto_scalarmult_curve25519(b85decode(exp), b85decode(public))
-    print "shared secret", b85encode(secret)
-    clearmem(secret)
+    return secret
 
 def random_stream_handler(outfile = None, size = None):
     # generates a stream of 'size' or if 'size' unspecified then
@@ -477,213 +470,8 @@ def random_stream_handler(outfile = None, size = None):
             outfd.write(nacl.crypto_stream(size - i))
             break
 
-def main():
-    # main command line handler for pbp
-    parser = argparse.ArgumentParser(description='pbp')
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--gen-key',     '-g',  dest='action', action='store_const', const='g', help="generates a new key")
-    group.add_argument('--encrypt',     '-c',  dest='action', action='store_const', const='c',help="encrypts")
-    group.add_argument('--decrypt',     '-d',  dest='action', action='store_const', const='d',help="decrypts")
-    group.add_argument('--sign',        '-s',  dest='action', action='store_const', const='s',help="signs")
-    group.add_argument('--master-sign', '-m',  dest='action', action='store_const', const='m',help="signs keys with your masterkey")
-    group.add_argument('--verify',      '-v',  dest='action', action='store_const', const='v',help="verifies")
-    group.add_argument('--list',        '-l',  dest='action', action='store_const', const='l',help="lists public keys")
-    group.add_argument('--list-secret', '-L',  dest='action', action='store_const', const='L',help="Lists secret keys")
-    group.add_argument('--export-key',  '-x',  dest='action', action='store_const', const='x',help="export public key")
-    group.add_argument('--import-key',  '-X',  dest='action', action='store_const', const='X',help="import public key")
-    group.add_argument('--check-sigs',  '-C',  dest='action', action='store_const', const='C',help="lists all known sigs on a public key")
-    group.add_argument('--fcrypt',      '-e',  dest='action', action='store_const', const='e',help="encrypts a message using PFS to a peer")
-    group.add_argument('--fdecrypt',    '-E',  dest='action', action='store_const', const='E',help="decrypts a message using PFS to a peer")
-    group.add_argument('--dh-start',    '-D1', dest='action', action='store_const', const='d1',help="initiates an ECDH key exchange")
-    group.add_argument('--dh-respond',  '-D2', dest='action', action='store_const', const='d2',help="responds to an ECDH key request")
-    group.add_argument('--dh-end',      '-D3', dest='action', action='store_const', const='d3',help="finalizes an ECDH key exchange")
-    group.add_argument('--rand-stream', '-R',  dest='action', action='store_const', const='R',help="generate arbitrary random stream")
-
-    parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
-    parser.add_argument('--name',       '-n', help="sets the name for a new key")
-    parser.add_argument('--basedir',    '-b', '--base-dir', help="set the base directory for all key storage needs", default=defaultbase)
-    parser.add_argument('--self',       '-S', help="sets your own key")
-    parser.add_argument('--dh-param',   '-Dp',help="public parameter for ECDH key exchange")
-    parser.add_argument('--dh-exp',     '-De',help="public parameter for ECDH key exchange")
-    parser.add_argument('--size',       '-Rs',help="size of random stream to generate")
-    parser.add_argument('--infile',     '-i', help="file to operate on")
-    parser.add_argument('--armor',      '-a', action='store_true', help="ascii armors the output")
-    parser.add_argument('--outfile',    '-o', help="file to output to")
-    opts=parser.parse_args()
-
-    opts.basedir=os.path.expandvars( os.path.expanduser(opts.basedir))
-    # Generate key
-    if opts.action=='g':
-        ensure_name_specified(opts)
-        publickey.Identity(opts.name, create=True, basedir=opts.basedir)
-
-    # list public keys
-    elif opts.action=='l':
-        for i in publickey.get_public_keys(opts.basedir):
-            print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
-                   else 'invalid'), i.keyid(), i.name
-
-    # list secret keys
-    elif opts.action=='L':
-        for i in publickey.get_secret_keys(opts.basedir):
-            print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
-                   else 'invalid'), i.keyid(), i.name
-
-    # encrypt
-    elif opts.action=='c':
-        if opts.recipient or opts.self:
-            ensure_self_specified(opts)
-            ensure_recipient_specified(opts)
-        encrypt_handler(infile=opts.infile,
-                        outfile=opts.outfile,
-                        recipient=opts.recipient,
-                        self=opts.self,
-                        basedir=opts.basedir)
-
-    # decrypt
-    elif opts.action=='d':
-        decrypt_handler(infile=opts.infile,
-                        outfile=opts.outfile,
-                        self=opts.self,
-                        basedir=opts.basedir)
-
-    # sign
-    elif opts.action=='s':
-        ensure_self_specified(opts)
-        sign_handler(infile=opts.infile,
-                     outfile=opts.outfile,
-                     self=opts.self,
-                     armor=opts.armor,
-                     basedir=opts.basedir)
-
-    # verify
-    elif opts.action=='v':
-        verify_handler(infile=opts.infile,
-                       outfile=opts.outfile,
-                       basedir=opts.basedir)
-
-    # key sign
-    elif opts.action=='m':
-        ensure_name_specified(opts)
-        ensure_self_specified(opts)
-        keysign_handler(name=opts.name,
-                        self=opts.self,
-                        basedir=opts.basedir)
-
-    # lists signatures owners on public keys
-    elif opts.action=='C':
-        ensure_name_specified(opts)
-        keycheck_handler(name=opts.name,
-                         basedir=opts.basedir)
-
-    # export public key
-    elif opts.action=='x':
-        ensure_self_specified(opts)
-        export_handler(opts.self,
-                       basedir=opts.basedir)
-    # import public key
-    elif opts.action=='X':
-        import_handler(infile=opts.infile,
-                       basedir=opts.basedir)
-
-    # forward encrypt
-    elif opts.action=='e':
-        ensure_recipient_specified(opts)
-        ensure_only_one_recipient(opts)
-        # TODO could try to find out this automatically if non-ambiguous
-        ensure_self_specified(opts)
-        chaining_encrypt_handler(opts.infile,
-                        outfile=opts.outfile,
-                        recipient=opts.recipient[0],
-                        self=opts.self,
-                        basedir=opts.basedir)
-
-    # forward decrypt
-    elif opts.action=='E':
-        ensure_recipient_specified(opts)
-        ensure_only_one_recipient(opts)
-        # TODO could try to find out this automatically if non-ambiguous
-        ensure_self_specified(opts)
-        chaining_decrypt_handler(opts.infile,
-                            outfile=opts.outfile,
-                            recipient=opts.recipient[0],
-                            self=opts.self,
-                            basedir=opts.basedir)
-    # start ECDH
-    elif opts.action=='d1':
-        dh1_handler()
-    # receive ECDH
-    elif opts.action=='d2':
-        ensure_dhparam_specified(opts)
-        dh2_handler(opts.dh_param)
-    # finish ECDH
-    elif opts.action=='d3':
-        ensure_dhparam_specified(opts)
-        ensure_dhexp_specified(opts)
-        dh3_handler(opts.dh_param, opts.dh_exp)
-
-    elif opts.action=='R':
-        ensure_size_good(opts)
-        random_stream_handler(opts.outfile, opts.size)
-
-def ensure_self_specified(opts):
-    # asserts that self is specified
-    if not opts.self:
-        die("Error: need to specify your own key using the --self param")
-
-def ensure_name_specified(opts):
-    # asserts that name is specified
-    if not opts.name:
-        die("Error: need to specify a key to operate on using the --name param")
-
-def ensure_recipient_specified(opts):
-    # asserts that recipient is specified
-    if not opts.recipient:
-        die("Error: need to specify a recipient to "
-            "operate on using the --recipient param")
-
-def ensure_only_one_recipient(opts):
-    # asserts that only one recipient is specified
-    if len(opts.recipient) > 1:
-        die("Error: you can only PFS decrypt from one recipient.")
-
-def ensure_dhparam_specified(opts):
-    # asserts that dhparam is specified
-    if not opts.dh_param:
-        die("Error: need to specify the ECDH public parameter using the -Dp param")
-
-def ensure_dhexp_specified(opts):
-    # asserts that dhexp is specified
-    if not opts.dh_exp:
-        die("Error: need to specify your secret ECDH exponent using the -De param")
-
-def ensure_size_good(opts):
-    # asserts that size is specified, and expands any postfixes KMGT
-    if opts.size:
-        fact = 1
-        if opts.size[-1] == 'K':
-            fact = 1024
-            opts.size = opts.size[:-1]
-        elif opts.size[-1] == 'M':
-            fact = 1024 * 1024
-            opts.size = opts.size[:-1]
-        elif opts.size[-1] == 'G':
-            fact = 1024 * 1024 * 1024
-            opts.size = opts.size[:-1]
-        elif opts.size[-1] == 'T':
-            fact = 1024 * 1024 * 1024 * 1024
-            opts.size = opts.size[:-1]
-        try:
-            opts.size = float(opts.size) * fact
-        except:
-            die("Error: need to specify an float after -Rs <float><[K|M|G|T]>")
-
-def die(msg):
-    # complains and dies
-    print >>sys.stderr, msg
-    sys.exit(1)
-
 if __name__ == '__main__':
+    from main import main
     lockmem()
     main()
     clearmem(_prev_passphrase)
