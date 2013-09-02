@@ -3,7 +3,8 @@
 
 from tempfile import mkdtemp
 from shutil import rmtree
-import unittest, pbp, os, re, publickey
+import unittest, pbp, os, re
+from pbp import pbp, publickey
 
 NAME = "keyname"
 MESSAGE = "Hello, world"
