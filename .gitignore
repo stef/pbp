@@ -1,2 +1,7 @@
 *.pyc
-env
+env/
+arch/
+build/
+dist/
+pbp.egg-info/
+test-pbp/
