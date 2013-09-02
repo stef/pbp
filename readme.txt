@@ -5,7 +5,8 @@ v0.2 - experimental
 PBP[0] is a simple python wrapper around libsodium, to provide basic
 functionality resembling PGP. It uses scrypt for a KDF and a much
 simpler packet format, which should be much harder to fingerprint and
-also provides a forward secrecy mode.
+also provides a forward secrecy mode. pbp is a module and a command
+line front-end to it.
 
 Installation
 
@@ -68,63 +69,63 @@ Usage
 
 Generate a key
 
-   pbp.py -g -n alice
+   pbp -g -n alice
 
 sending howdy.txt using public key encryption from alice to bob
 
-   pbp.py -c -S alice -r bob -i howdy.txt
+   pbp -c -S alice -r bob -i howdy.txt
 
 decrypt an encrypted file using public key crypto
 
-   pbp.py -d -S bob -i howdy.txt.pbp
+   pbp -d -S bob -i howdy.txt.pbp
 
 sending howdy.txt using secret key encryption
 
-   pbp.py -c -i howdy.txt
+   pbp -c -i howdy.txt
 
 decrypt an encrypted file using secret key crypto
 
-   pbp.py -d -i howdy.txt.pbp
+   pbp -d -i howdy.txt.pbp
 
 sign howdy.txt
 
-   pbp.py -s -S alice -i /howdy.txt
+   pbp -s -S alice -i /howdy.txt
 
 verify howdy.txt
 
-   pbp.py -v -i howdy.txt.sig
+   pbp -v -i howdy.txt.sig
 
 sign bobs key
 
-   pbp.py -m -S alice -n bob
+   pbp -m -S alice -n bob
 
 check sigs on carols key
 
-   pbp.py -C -n carol
+   pbp -C -n carol
 
 alice encrypts howdy.txt to bob using experimental forward secret mode
 
-   pbp.py -e -S alice -r bob -i howdy.txt -o ./secret-message
+   pbp -e -S alice -r bob -i howdy.txt -o ./secret-message
 
 bob decrypts howdy.txt from alice using experimental forward secret mode
 
-   pbp.py -E -S bob -r alice -i ./secret-message
+   pbp -E -S bob -r alice -i ./secret-message
 
 initiate ECDH key exchange
 
-   pbp.py -D1
+   pbp -D1
 
 respond to ECDH key exchange
 
-   pbp.py -D2 -Dp 'public component from D1'
+   pbp -D2 -Dp 'public component from D1'
 
 finish ECDH key exchange
 
-  pbp.py -D3 -Dp 'public component from D2' -De 'secret exponent from D1'
+  pbp -D3 -Dp 'public component from D2' -De 'secret exponent from D1'
 
 random streaming 23GByte of cryptographic randomness
 
-  pbp.py -R -Rs 23G -o /mnt/huge_fs/random_data
+  pbp -R -Rs 23G -o /mnt/huge_fs/random_data
 
 (c) 2013, stf <s@ctrlc.hu>, dnet vsza@vsza.hu, AGPLv3.0+
 
