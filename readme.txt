@@ -1,6 +1,6 @@
 pbp
 
-v0.4.99 - experimental
+v0.2 - experimental
 
 PBP[0] is a simple python wrapper around libsodium, to provide basic
 functionality resembling PGP. It uses scrypt for a KDF and a much
@@ -9,16 +9,10 @@ also provides a forward secrecy mode.
 
 Installation
 
-The install.txt is also a automatic install script use:
-
-   wget -O - https://raw.github.com/stef/pbp/master/install.txt | sh -
+pip install pbp
 
 you possibly need to run (or an equivalent command) sudo apt-get install git
 python-virtualenv gcc python-dev libffi-dev to satisfy all basic dependencies.
-
-TODO
-
-setup.py
 
 Design goals:
 
@@ -38,7 +32,7 @@ PGP-like
 
 Provides basic public key encrypt/decrypt, sign/verify and secret key
 encrypt/decrypt modes, as well as the ability to sign, verify, list,
-generate, export and import keys. 
+generate, export and import keys.
 
 Extensibility
 
