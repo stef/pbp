@@ -1,7 +1,8 @@
 #!/usr/bin/env python2
 
 import pysodium as nacl
-from base85 import b85encode
+from SecureString import clearmem
+from pbp.utils import b85encode
 
 def _2user():
     # 1st user
@@ -67,7 +68,7 @@ def test():
 
 class ECDH:
     def __init__(self):
-        self.shared = None
+        self.secret = None
         self.key = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
         self.public = nacl.crypto_scalarmult_curve25519_base(self.key)
 
@@ -88,8 +89,8 @@ class ECDH:
         return nacl.crypto_scalarmult_curve25519(self.key, point)
 
     def finish(self,point):
-        self.shared=nacl.crypto_scalarmult_curve25519(self.key, point)
-        return self.shared
+        self.secret = nacl.crypto_scalarmult_curve25519(self.key, point)
+        return self.secret
 
     def __repr__(self):
         return str(peers.index(self))
@@ -105,6 +106,40 @@ class ECDH:
         half2[1].MPDH(half2[0].public, 2, half2, half1)
         print '\n'.join(map(str,peers))
 
+class MPECDH():
+    def __init__(self, peers):
+        self.peers = peers
+        self.next = None
+        self.secret = None
+        self.key = None
+
+    def mpecdh(self, keyring = []):
+        if self.secret: return self.secret
+        if not self.key:
+            self.key = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
+            keyring = [nacl.crypto_scalarmult_curve25519(self.key, public)
+                       for public in keyring]
+            keyring.append(nacl.crypto_scalarmult_curve25519_base(self.key))
+            if len(keyring) == self.peers: # we are last, remove our own secret
+                self.secret = keyring[0]
+                keyring = keyring[1:]
+        else:
+            self.secret = nacl.crypto_scalarmult_curve25519(self.key, keyring[0])
+            keyring = [nacl.crypto_scalarmult_curve25519(self.key, public)
+                       for public in keyring[1:]]
+            clearmem(self.key)
+            self.key = None
+        self.next.mpecdh(keyring)
+
+def test_mpecdh():
+    peers = [MPECDH(9) for _ in range(9)]
+    for i, peer in enumerate(peers):
+        peer.next=peers[(i+1)%(len(peers))]
+    peers[0].mpecdh()
+    for i, peer in enumerate(peers):
+        print i, b85encode(peer.secret)
+
 if __name__ == '__main__':
     print "-" * 80
-    test()
+    #test()
+    test_mpecdh()
