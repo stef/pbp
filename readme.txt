@@ -2,11 +2,11 @@ pbp
 
 v0.2 - experimental
 
-PBP[0] is a simple python wrapper around libsodium, to provide basic
-functionality resembling PGP. It uses scrypt for a KDF and a much
-simpler packet format, which should be much harder to fingerprint and
-also provides a forward secrecy mode. pbp is a module and a command
-line front-end to it.
+PBP[0] is a simple python wrapper and a command line interface around
+libsodium, to provide basic functionality resembling PGP. It uses
+scrypt for a KDF and a much simpler packet format, which should be
+much harder to fingerprint and also provides a forward secrecy
+mode.
 
 Installation
 
