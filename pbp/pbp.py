@@ -3,7 +3,7 @@ import pysodium as nacl, scrypt # external dependencies
 import getpass, sys, struct
 from utils import b85encode, b85decode, lockmem
 from SecureString import clearmem
-import chaining, publickey
+import chaining, publickey, ecdh
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
@@ -26,11 +26,11 @@ def getkey(l, pwd='', empty=False, text=''):
     pwd2 = not pwd
     if not pwd:
         if _prev_passphrase:
-            print >>sys.stderr, "press enter to reuse the previous passphrase"
+            print >>sys.stderr, "\npress enter to reuse the previous passphrase"
         while pwd != pwd2 or (not empty and not pwd.strip()):
-            pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
+            pwd = getpass.getpass('\n1/2 %s Passphrase: ' % text)
             if pwd.strip():
-                pwd2 = getpass.getpass('2/2 %s Repeat passphrase: ' % text)
+                pwd2 = getpass.getpass('\n2/2 %s Repeat passphrase: ' % text)
             elif _prev_passphrase is not None:
                 pwd = _prev_passphrase
                 break
@@ -67,7 +67,7 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
     while cnt<retries:
         if not k:
             if not pwd:
-                pwd = getpass.getpass('Passphrase for decrypting: ')
+                pwd = getpass.getpass('\nPassphrase for decrypting: ')
             k =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
             if clearpwd: clearmem(pwd)
             pwd = None
@@ -470,7 +470,35 @@ def random_stream_handler(outfile = None, size = None):
             outfd.write(nacl.crypto_stream(size - i))
             break
 
+def mpecdh_start_handler(id, peer_count, self, infile = None, outfile = None, basedir = None):
+    ctx = ecdh.MPECDH(id, peers = peer_count, me = self, basedir = basedir)
+    keychain = ctx.mpecdh1(ecdh.load_dh_keychain(infile))
+    if not hasattr(ctx,'secret'):
+        ctx.save()
+    clearmem(ctx.key)
+    ctx.key=None
+    ecdh.save_dh_keychain(outfile, keychain)
+    if hasattr(ctx,'secret'):
+        return ctx.secret
+
+def mpecdh_end_handler(id, self, infile = None, outfile = None, basedir = None):
+    ctx = ecdh.MPECDH(id, me = self, basedir = basedir)
+    ctx.load()
+    keychain = ctx.mpecdh2(ecdh.load_dh_keychain(infile))
+    if keychain:
+        ecdh.save_dh_keychain(outfile, keychain)
+    return ctx.secret
+
+def test():
+    mpecdh_start_handler('1st', 3, 'alice', '/dev/null', '/tmp/step1', 'test-pbp')
+    mpecdh_start_handler('1st', 3, 'bob', '/tmp/step1', '/tmp/step2', 'test-pbp')
+    mpecdh_start_handler('1st', 3, 'carol', '/tmp/step2', '/tmp/step3', 'test-pbp')
+    mpecdh_end_handler('1st', 'alice', '/tmp/step3', '/tmp/step4', 'test-pbp')
+    mpecdh_end_handler('1st', 'bob', '/tmp/step4', '/tmp/step5', 'test-pbp')
+
 if __name__ == '__main__':
+    #test()
+    #sys.exit()
     from main import main
     lockmem()
     main()

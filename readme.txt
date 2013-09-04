@@ -5,8 +5,8 @@ v0.2 - experimental
 PBP[0] is a simple python wrapper and a command line interface around
 libsodium, to provide basic functionality resembling PGP. It uses
 scrypt for a KDF and a much simpler packet format, which should be
-much harder to fingerprint and also provides a forward secrecy
-mode.
+much harder to fingerprint, pbp also provides an experimental forward
+secrecy mode and a multi-party DH mode.
 
 Installation
 
@@ -126,6 +126,24 @@ finish ECDH key exchange
 random streaming 23GByte of cryptographic randomness
 
   pbp -R -Rs 23G -o /mnt/huge_fs/random_data
+
+participate in a 4-way DH exchange, 1st message
+
+  pbp -Ds -Dp 4 -S alice -n 'friends001' -i oldkeychain -o newkeychain
+
+participate in a 4-way DH exchange, 2nd message
+
+  pbp -De -S alice -n 'friends001' -i oldkeychain -o newkeychain
+
+this is one big pipe that creates a 3-way ECDH secret between alice, bob and carol:
+
+  pbp -Ds -S alice -b test-pbp -Dp 3 -n 'test-dh' -i /dev/null |
+   pbp -Ds -S bob -b test-pbp -Dp 3 -n 'test-dh' |
+   pbp -Ds -S carol -b test-pbp -Dp 3 -n 'test-dh' |
+   pbp -De -S alice -b test-pbp -Dp 3 -n 'test-dh' |
+   pbp -De -S bob -b test-pbp -Dp 3 -n 'test-dh'
+
+of course instead of a pipe you could use any kind of transport mechanism
 
 (c) 2013, stf <s@ctrlc.hu>, dnet vsza@vsza.hu, AGPLv3.0+
 

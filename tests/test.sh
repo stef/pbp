@@ -59,3 +59,9 @@ pbp -E -S alice -r bob -b ./test-pbp/ -i /tmp/2alice -o /tmp/4alice || exit
 echo testing random number streaming
 pbp -R -Rs 99999999 | pv -ftrab >/dev/null
 
+echo testing multiparty DH
+pbp -Ds -S alice -b test-pbp -Dp 3 -n 'test-dh' -i /dev/null -o /tmp/dh1
+pbp -Ds -S bob -b test-pbp -Dp 3 -n 'test-dh' -i /tmp/dh1 -o /tmp/dh2
+pbp -Ds -S carol -b test-pbp -Dp 3 -n 'test-dh' -i /tmp/dh2 -o /tmp/dh3
+pbp -De -S alice -b test-pbp -Dp 3 -n 'test-dh' -i /tmp/dh3 -o /tmp/dh4
+pbp -De -S bob -b test-pbp -Dp 3 -n 'test-dh' -i /tmp/dh4 -o /tmp/dh5
