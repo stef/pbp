@@ -137,11 +137,11 @@ participate in a 4-way DH exchange, 2nd message
 
 this is one big pipe that creates a 3-way ECDH secret between alice, bob and carol:
 
-  pbp -Ds -S alice -b test-pbp -Dp 3 -n 'test-dh' -i /dev/null |
-   pbp -Ds -S bob -b test-pbp -Dp 3 -n 'test-dh' |
-   pbp -Ds -S carol -b test-pbp -Dp 3 -n 'test-dh' |
-   pbp -De -S alice -b test-pbp -Dp 3 -n 'test-dh' |
-   pbp -De -S bob -b test-pbp -Dp 3 -n 'test-dh'
+  pbp -Ds -S alice -Dp 3 -n 'test-dh' -i /dev/null |
+   pbp -Ds -S bob -Dp 3 -n 'test-dh' |
+   pbp -Ds -S carol -Dp 3 -n 'test-dh' |
+   pbp -De -S alice -Dp 3 -n 'test-dh' |
+   pbp -De -S bob -Dp 3 -n 'test-dh'
 
 of course instead of a pipe you could use any kind of transport mechanism
 
