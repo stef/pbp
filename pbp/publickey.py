@@ -7,6 +7,7 @@ from SecureString import clearmem
 import pbp
 
 class Identity(object):
+    """implements a public keyring with a master key and two sub-keys"""
     def __init__(self, name, basedir=None, create=False, publicOnly=False):
         """initializes the Identity from the keystore or creates one"""
         self.name=name
