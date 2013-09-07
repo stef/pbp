@@ -2,7 +2,7 @@
 import argparse, os, sys, datetime
 from utils import b85encode, lockmem
 from SecureString import clearmem
-import publickey
+import publickey, pysodium as nacl
 from pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
 from pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
 from pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
@@ -160,7 +160,7 @@ def main():
         ensure_name_specified(opts)
         sec = mpecdh_start_handler(opts.name, opts.dh_peers, opts.self, opts.infile, opts.outfile, opts.basedir)
         if sec:
-            print >>sys.stderr, "shared secret", b85encode(sec)
+            print >>sys.stderr, "pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6))
             clearmem(sec)
             sec = None
 
@@ -170,7 +170,7 @@ def main():
         ensure_name_specified(opts)
         sec = mpecdh_end_handler(opts.name, opts.self, opts.infile, opts.outfile, opts.basedir)
         if sec:
-            print >>sys.stderr, "shared secret", b85encode(sec)
+            print >>sys.stderr, "pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6))
             clearmem(sec)
             sec = None
 
