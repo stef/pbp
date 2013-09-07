@@ -90,7 +90,7 @@ def inputfd(infile):
         return open(infile,'r')
 
 def outputfd(outfile):
-    if outfile == '-':
+    if not outfile or outfile == '-':
         return sys.stdout
     else:
         return open(outfile,'w')
