@@ -50,9 +50,9 @@ class MPECDH():
         if not self.me_id:
             self.me_id = publickey.Identity(self.me, basedir=self.basedir)
         with open(keyfname,'r') as fd:
+            nonce = fd.read(nacl.crypto_box_NONCEBYTES)
             raw = fd.read()
-            nonce = raw[:nacl.crypto_box_NONCEBYTES]
-            self.key =  nacl.crypto_box_open(raw[nacl.crypto_box_NONCEBYTES:], nonce, self.me_id.cp, self.me_id.cs)
+            self.key =  nacl.crypto_box_open(raw, nonce, self.me_id.cp, self.me_id.cs)
         os.remove(keyfname)
 
     def mpecdh1(self, keyring = []):
