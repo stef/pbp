@@ -26,11 +26,11 @@ def getkey(l, pwd='', empty=False, text=''):
     pwd2 = not pwd
     if not pwd:
         if _prev_passphrase:
-            print >>sys.stderr, "\npress enter to reuse the previous passphrase"
+            print >>sys.stderr, "press enter to reuse the previous passphrase"
         while pwd != pwd2 or (not empty and not pwd.strip()):
-            pwd = getpass.getpass('\n1/2 %s Passphrase: ' % text)
+            pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
             if pwd.strip():
-                pwd2 = getpass.getpass('\n2/2 %s Repeat passphrase: ' % text)
+                pwd2 = getpass.getpass('2/2 %s Repeat passphrase: ' % text)
             elif _prev_passphrase is not None:
                 pwd = _prev_passphrase
                 break
@@ -83,6 +83,19 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
     if res:
         return res
 
+def inputfd(infile):
+    if not infile or infile == '-':
+        return sys.stdin
+    else:
+        return open(infile,'r')
+
+def outfd(outfile):
+    if outfile == '-':
+        return sys.stdout
+    else:
+        return open(outfile,'w')
+
+
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     # provides a high level function to do encryption of files
     # infile specifies the filename of the input file,
@@ -94,15 +107,8 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     # basedir provides a root for the keystores needed for pk crypto
     # if both self and recipient is specified pk crypto is used, otherwise symmetric
     # this function also handles buffering.
-    if not infile or infile == '-':
-        fd = sys.stdin
-    else:
-        fd = open(infile,'r')
-
-    if outfile == '-':
-        outfd = sys.stdout
-    else:
-        outfd = open(outfile or infile+'.pbp','w')
+    fd = inputfd(infile)
+    outfd = outfile(outfile or infile+'.pbp')
 
     if recipient and self:
         # let's do public key encryption
@@ -144,14 +150,8 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     # basedir provides a root for the keystores needed for pk crypto
     # if self is specified pk crypto is used, otherwise symmetric
     # this function also handles buffering.
-    if not infile or infile == '-':
-        fd = sys.stdin
-    else:
-        fd = open(infile,'r')
-    if not outfile or outfile == '-':
-        outfd = sys.stdout
-    else:
-        outfd = open(outfile,'w')
+    fd = inputfd(infile)
+    outfd = outfile(outfile)
 
     key = None
     type=struct.unpack('B',fd.read(1))[0]
@@ -197,6 +197,17 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout: outfd.close()
 
+def hash_handler(infile=None, k='', outlen=16):
+    fd = inputfd(infile)
+    # calculate hash sum of data
+    state = nacl.crypto_generichash_init()
+    while True:
+        block =  fd.read(BLOCK_SIZE)
+        if not block.strip(): break
+        state = nacl.crypto_generichash_update(state, block)
+    if fd != sys.stdin: fd.close()
+    return nacl.crypto_generichash_final(state)
+
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
     # provides a high level function to sign files
     # infile specifies the filename of the input file,
@@ -209,10 +220,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     # self specifies the sender for signing the message
     # basedir provides a root for the keystores
     # this function also handles buffering.
-    if not infile or infile == '-':
-        fd = sys.stdin
-    else:
-        fd = open(infile,'r')
+    fd = inputfd(infile)
 
     if (not outfile and armor) or outfile == '-' or (not infile or infile == '-'):
         outfd = sys.stdout
@@ -246,17 +254,8 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     # outfile specifies the filename of the output file,
     # basedir provides a root for the keystores
     # this function also handles buffering.
-    if not infile or infile == '-':
-        fd = sys.stdin
-    else:
-        fd = open(infile,'r')
-    if outfile:
-        if outfile == '-':
-            outfd = sys.stdout
-        else:
-            outfd = open(outfile,'w')
-    else:
-        outfd = sys.stdout
+    fd = inputfd(infile)
+    outfd = outfile(outfile)
 
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
@@ -363,14 +362,8 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     # self the sending parties name
     # recipient the receiving peers name
     # basedir the root directory used for key storage
-    if not infile or infile == '-':
-        inp = sys.stdin
-    else:
-        inp = open(infile,'r')
-    if outfile == '-' or (not infile or infile == '-'):
-        fd = sys.stdout
-    else:
-        fd = open(outfile or infile+'.pbp','w')
+    inp = inputfd(infile)
+    fd = outfile(outfile or infile+'.pbp')
 
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
@@ -395,14 +388,8 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     # self the sending parties name
     # recipient the receiving peers name
     # basedir the root directory used for key storage
-    if not infile or infile == '-':
-        fd = sys.stdin
-    else:
-        fd = open(infile,'r')
-    if outfile == '-' or (not infile or infile == '-'):
-        outfd = sys.stdout
-    else:
-        outfd = open(outfile or infile+'.pbp','w')
+    fd = inputfd(infile)
+    outfd = outfile(outfile or infile+'.pbp')
 
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
