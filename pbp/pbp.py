@@ -89,7 +89,7 @@ def inputfd(infile):
     else:
         return open(infile,'r')
 
-def outfd(outfile):
+def outputfd(outfile):
     if outfile == '-':
         return sys.stdout
     else:
@@ -108,7 +108,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     # if both self and recipient is specified pk crypto is used, otherwise symmetric
     # this function also handles buffering.
     fd = inputfd(infile)
-    outfd = outfile(outfile or infile+'.pbp')
+    outfd = outputfd(outfile or infile+'.pbp')
 
     if recipient and self:
         # let's do public key encryption
@@ -151,7 +151,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     # if self is specified pk crypto is used, otherwise symmetric
     # this function also handles buffering.
     fd = inputfd(infile)
-    outfd = outfile(outfile)
+    outfd = outputfd(outfile)
 
     key = None
     type=struct.unpack('B',fd.read(1))[0]
@@ -255,7 +255,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     # basedir provides a root for the keystores
     # this function also handles buffering.
     fd = inputfd(infile)
-    outfd = outfile(outfile)
+    outfd = outputfd(outfile)
 
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
@@ -363,7 +363,7 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     # recipient the receiving peers name
     # basedir the root directory used for key storage
     inp = inputfd(infile)
-    fd = outfile(outfile or infile+'.pbp')
+    fd = outputfd(outfile or infile+'.pbp')
 
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
@@ -389,7 +389,7 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     # recipient the receiving peers name
     # basedir the root directory used for key storage
     fd = inputfd(infile)
-    outfd = outfile(outfile or infile+'.pbp')
+    outfd = outputfd(outfile or infile+'.pbp')
 
     ctx=chaining.ChainingContext(self, recipient, basedir)
     ctx.load()
@@ -475,6 +475,7 @@ def mpecdh_end_handler(id, self, infile = None, outfile = None, basedir = None):
     if keychain:
         ecdh.save_dh_keychain(outfile, keychain)
     return ctx.secret
+
 
 def test():
     mpecdh_start_handler('1st', 3, 'alice', '/dev/null', '/tmp/step1', 'test-pbp')
