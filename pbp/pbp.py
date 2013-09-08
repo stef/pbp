@@ -108,7 +108,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     # if both self and recipient is specified pk crypto is used, otherwise symmetric
     # this function also handles buffering.
     fd = inputfd(infile)
-    outfd = outputfd(outfile or infile+'.pbp')
+    outfd = outputfd(outfile or infile+'.pbp' if infile else '-')
 
     if recipient and self:
         # let's do public key encryption
@@ -271,7 +271,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
         sigoffset = fullblock.rfind(SIGPREFIX)
 
         if 0 <= sigoffset <= (BLOCK_SIZE/2):
-            sig = b85decode(fullblock[sigoffset+len(SIGPREFIX):])
+            sig = b85decode(fullblock[sigoffset+len(SIGPREFIX):sigoffset+len(SIGPREFIX)+80])
             block = block[:sigoffset]
             next = ''
         elif len(fullblock)<(BLOCK_SIZE/2)+nacl.crypto_sign_BYTES:
