@@ -3,7 +3,7 @@ import pysodium as nacl, scrypt # external dependencies
 import getpass, sys, struct
 from utils import b85encode, b85decode, lockmem
 from SecureString import clearmem
-import chaining, publickey, ecdh
+import chaining, publickey, ecdh#, seeds
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
@@ -366,17 +366,8 @@ def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     fd = outputfd(outfile or infile+'.pbp')
 
     ctx=chaining.ChainingContext(self, recipient, basedir)
-    ctx.load()
-    msg=inp.read(BLOCK_SIZE)
-    cipher, nonce = ctx.send(msg)
-    while True:
-        fd.write(nonce)
-        fd.write(cipher)
-        msg=inp.read(BLOCK_SIZE)
-        if not msg: break
-        cipher, nonce = ctx.encrypt(msg)
-    ctx.save()
-    ctx.clear()
+    ctx.buffered_encrypt(inp, fd)
+
     if inp != sys.stdin: inp.close()
     if fd != sys.stdout: fd.close()
 
@@ -392,26 +383,8 @@ def chaining_decrypt_handler(infile=None, outfile=None, recipient=None, self=Non
     outfd = outputfd(outfile or infile+'.pbp')
 
     ctx=chaining.ChainingContext(self, recipient, basedir)
-    ctx.load()
-    blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
-    if ctx.out_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
-        nonce = fd.read(nacl.crypto_box_NONCEBYTES)
-    else:
-        nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-    ct = fd.read(blocklen+16)
-    msg = ctx.receive(ct,nonce)
-    while True:
-        outfd.write(msg)
-        nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-        if not nonce:
-            break
-        if len(nonce) != nacl.crypto_secretbox_NONCEBYTES:
-            print >>sys.stderr, 'decryption failed'
-            return
-        ct = fd.read(BLOCK_SIZE+16)
-        msg = ctx.decrypt(ct,nonce)
-    ctx.save()
-    ctx.clear()
+    ctx.buffered_decrypt(fd, outfd)
+
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout: outfd.close()
 
@@ -466,6 +439,7 @@ def mpecdh_start_handler(id, peer_count, self, infile = None, outfile = None, ba
     ctx.key=None
     ecdh.save_dh_keychain(outfile, keychain)
     if hasattr(ctx,'secret'):
+        #seeds.SeedStore(self, basedir).push_seed('seeds',ctx.secret)
         return ctx.secret
 
 def mpecdh_end_handler(id, self, infile = None, outfile = None, basedir = None):
@@ -474,6 +448,7 @@ def mpecdh_end_handler(id, self, infile = None, outfile = None, basedir = None):
     keychain = ctx.mpecdh2(ecdh.load_dh_keychain(infile))
     if keychain:
         ecdh.save_dh_keychain(outfile, keychain)
+    #seeds.SeedStore(self, basedir).push_seed('seeds',ctx.secret)
     return ctx.secret
 
 

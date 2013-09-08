@@ -20,6 +20,7 @@
 import pysodium as nacl, os
 from SecureString import clearmem
 import publickey
+BLOCK_SIZE = 1 << 15
 
 class ChainingContext(object):
     def __init__(self, me, peer, basedir):
@@ -165,6 +166,40 @@ class ChainingContext(object):
         clearmem(self.in_k)
         clearmem(self.in_prev)
         self.me_id.clear()
+
+    def buffered_encrypt(self, infd,outfd):
+        self.load()
+        msg=infd.read(BLOCK_SIZE)
+        cipher, nonce = self.send(msg)
+        while True:
+            outfd.write(nonce)
+            outfd.write(cipher)
+            msg=infd.read(BLOCK_SIZE)
+            if not msg: break
+            cipher, nonce = self.encrypt(msg)
+        self.save()
+        self.clear()
+
+    def buffered_decrypt(self, infd,outfd):
+        self.load()
+        blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
+        if self.out_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
+            nonce = infd.read(nacl.crypto_box_NONCEBYTES)
+        else:
+            nonce = infd.read(nacl.crypto_secretbox_NONCEBYTES)
+        ct = infd.read(blocklen+16)
+        msg = self.receive(ct,nonce)
+        while True:
+            outfd.write(msg)
+            nonce = infd.read(nacl.crypto_secretbox_NONCEBYTES)
+            if not nonce:
+                break
+            if len(nonce) != nacl.crypto_secretbox_NONCEBYTES:
+                raise ValueError
+            ct = infd.read(BLOCK_SIZE+16)
+            msg = self.decrypt(ct,nonce)
+        self.save()
+        self.clear()
 
 def test():
     alice = ChainingContext('alice','bob', 'test-pbp')
