@@ -145,6 +145,15 @@ this is one big pipe that creates a 3-way ECDH secret between alice, bob and car
 
 of course instead of a pipe you could use any kind of transport mechanism
 
+Integration
+
+you can add the following to your .vimrc
+
+   map ;e :%!/bin/sh -c 'pbp -c 2>/dev/tty \| base64'<C-M>
+   map ;d :%!/bin/sh -c 'base64 -d \| pbp -d 2>/dev/tty'<C-M>
+   map ;s :,$! /bin/sh -c 'pbp -s -a -S stf 2>/dev/tty'<C-M>
+   map ;v :,$! /bin/sh -c 'pbp -v -a 2>/dev/tty'<C-M>
+
 (c) 2013, stf <s@ctrlc.hu>, dnet vsza@vsza.hu, AGPLv3.0+
 
 [0] also it's very funny to say pbp with a mouth full of dry cookies.
