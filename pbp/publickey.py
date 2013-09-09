@@ -6,6 +6,9 @@ from utils import split_by_n, b85encode
 from SecureString import clearmem
 import pbp
 
+SIGPREFIX = '\nnacl-'
+BLOCK_SIZE = 1 << 15
+
 class Identity(object):
     """implements a public keyring with a master key and two sub-keys"""
     def __init__(self, name, basedir=None, create=False, publicOnly=False):
@@ -161,12 +164,61 @@ class Identity(object):
             clearmem(self.ss)
             del self.ss
 
+    def buffered_sign(self,infd,outfd, armor=None):
+        # calculate hash sum of data
+        state = nacl.crypto_generichash_init()
+        while True:
+            block =  infd.read(BLOCK_SIZE)
+            if not block.strip(): break
+            state = nacl.crypto_generichash_update(state, block)
+            outfd.write(block)
+        hashsum = nacl.crypto_generichash_final(state)
+
+        # sign hashsum
+        sig = me.sign(hashsum)[:nacl.crypto_sign_BYTES]
+        me.clear()
+        if armor:
+            sig = "%s%s" % (SIGPREFIX, b85encode(sig))
+        outfd.write(sig)
+
 def verify(msg, master=False, basedir=None):
     for keys in get_public_keys(basedir=basedir or pbp.defaultbase):
         try:
             verifying_key = keys.mp if master else keys.sp
             return keys.name, nacl.crypto_sign_open(msg, verifying_key)
         except ValueError: pass
+
+def buffered_verify(infd, outfd, basedir):
+    # calculate hash sum of data
+    state = nacl.crypto_generichash_init()
+    block = infd.read(int(BLOCK_SIZE/2))
+    while block:
+        # use two half blocks, to overcome
+        # sigs spanning block boundaries
+        if len(block)==(BLOCK_SIZE/2):
+            next=infd.read(int(BLOCK_SIZE/2))
+        else: next=''
+
+        fullblock = "%s%s" % (block, next)
+        sigoffset = fullblock.rfind(SIGPREFIX)
+
+        if 0 <= sigoffset <= (BLOCK_SIZE/2):
+            sig = b85decode(fullblock[sigoffset+len(SIGPREFIX):sigoffset+len(SIGPREFIX)+80])
+            block = block[:sigoffset]
+            next = ''
+        elif len(fullblock)<(BLOCK_SIZE/2)+nacl.crypto_sign_BYTES:
+            sig = fullblock[-nacl.crypto_sign_BYTES:]
+            block = fullblock[:-nacl.crypto_sign_BYTES]
+            next = ''
+        state = nacl.crypto_generichash_update(state, block)
+        if outfd: outfd.write(block)
+        block = next
+    hashsum = nacl.crypto_generichash_final(state)
+
+    sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
+
+    if sender and hashsum == hashsum1:
+        return sender
 
 def get_public_keys(basedir=None):
     if not basedir: basedir=pbp.defaultbase

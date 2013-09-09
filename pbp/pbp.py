@@ -3,11 +3,10 @@ import pysodium as nacl, scrypt # external dependencies
 import getpass, sys, struct
 from utils import b85encode, b85decode, lockmem
 from SecureString import clearmem
-import chaining, publickey, ecdh#, seeds
+import chaining, publickey, ecdh, seeds
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
-SIGPREFIX = '\nnacl-'
 BLOCK_SIZE = 1024*1024
 
 defaultbase='~/.pbp'
@@ -227,22 +226,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     else:
         outfd = open(outfile or infile+'.sig','w')
 
-    # calculate hash sum of data
-    state = nacl.crypto_generichash_init()
-    while True:
-        block =  fd.read(BLOCK_SIZE)
-        if not block.strip(): break
-        state = nacl.crypto_generichash_update(state, block)
-        outfd.write(block)
-    hashsum = nacl.crypto_generichash_final(state)
-
-    me = publickey.Identity(self, basedir=basedir)
-    # sign hashsum
-    sig = me.sign(hashsum)[:nacl.crypto_sign_BYTES]
-    me.clear()
-    if armor:
-        sig = "%s%s" % (SIGPREFIX, b85encode(sig))
-    outfd.write(sig)
+    publickey.Identity(self, basedir=basedir).buffered_sign(fd, outfd, armor)
 
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout: outfd.close()
@@ -257,37 +241,12 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     fd = inputfd(infile)
     outfd = outputfd(outfile)
 
-    # calculate hash sum of data
-    state = nacl.crypto_generichash_init()
-    block = fd.read(int(BLOCK_SIZE/2))
-    while block:
-        # use two half blocks, to overcome
-        # sigs spanning block boundaries
-        if len(block)==(BLOCK_SIZE/2):
-            next=fd.read(int(BLOCK_SIZE/2))
-        else: next=''
+    sender = buffered_verify(fd,outfd,basedir)
 
-        fullblock = "%s%s" % (block, next)
-        sigoffset = fullblock.rfind(SIGPREFIX)
-
-        if 0 <= sigoffset <= (BLOCK_SIZE/2):
-            sig = b85decode(fullblock[sigoffset+len(SIGPREFIX):sigoffset+len(SIGPREFIX)+80])
-            block = block[:sigoffset]
-            next = ''
-        elif len(fullblock)<(BLOCK_SIZE/2)+nacl.crypto_sign_BYTES:
-            sig = fullblock[-nacl.crypto_sign_BYTES:]
-            block = fullblock[:-nacl.crypto_sign_BYTES]
-            next = ''
-        state = nacl.crypto_generichash_update(state, block)
-        if outfd: outfd.write(block)
-        block = next
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout: outfd.close()
-    hashsum = nacl.crypto_generichash_final(state)
 
-    sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
-    if sender and hashsum == hashsum1:
-        return sender
+    return sender
 
 def keysign_handler(name=None, self=None, basedir=None):
     # handles signing of keys using the master key
@@ -439,7 +398,7 @@ def mpecdh_start_handler(id, peer_count, self, infile = None, outfile = None, ba
     ctx.key=None
     ecdh.save_dh_keychain(outfile, keychain)
     if hasattr(ctx,'secret'):
-        #seeds.SeedStore(self, basedir).push_seed('seeds',ctx.secret)
+        seeds.SeedStore(self, basedir).push_seed('seeds',ctx.secret)
         return ctx.secret
 
 def mpecdh_end_handler(id, self, infile = None, outfile = None, basedir = None):
@@ -448,7 +407,7 @@ def mpecdh_end_handler(id, self, infile = None, outfile = None, basedir = None):
     keychain = ctx.mpecdh2(ecdh.load_dh_keychain(infile))
     if keychain:
         ecdh.save_dh_keychain(outfile, keychain)
-    #seeds.SeedStore(self, basedir).push_seed('seeds',ctx.secret)
+    seeds.SeedStore(self, basedir).push_seed('seeds',ctx.secret)
     return ctx.secret
 
 
