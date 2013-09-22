@@ -35,6 +35,7 @@ def main():
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
     parser.add_argument('--basedir',    '-b', '--base-dir', help="set the base directory for all key storage needs", default=defaultbase)
     parser.add_argument('--self',       '-S', help="sets your own key")
+    parser.add_argument('--key',        '-k', help="some password or secret")
     parser.add_argument('--size',       '-Rs',help="size of random stream to generate")
     parser.add_argument('--dh-peers',   '-Dp',help="the number of peers participating in a ECDH key exchange")
     parser.add_argument('--infile',     '-i', help="file to operate on")
@@ -180,9 +181,18 @@ def main():
         random_stream_handler(opts.outfile, opts.size)
 
     elif opts.action=='h':
-        hsum = hash_handler(opts.infile, outlen=int(opts.size or '16'))
+        hsum = hash_handler(opts.infile, k=load_key(opts.key), outlen=int(opts.size or '16'))
         if hsum:
             print ' '.join(split_by_n(binascii.hexlify(hsum),4))
+
+def load_key(key):
+    # asserts that self is specified
+    if not key:
+        return None
+    if os.path.exists(key):
+        with open(opts.key,'r') as fd:
+            key = fd.read()
+    return key
 
 def ensure_self_specified(opts):
     # asserts that self is specified

@@ -199,13 +199,13 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
 def hash_handler(infile=None, k='', outlen=16):
     fd = inputfd(infile)
     # calculate hash sum of data
-    state = nacl.crypto_generichash_init()
+    state = nacl.crypto_generichash_init(outlen=outlen, k=k or '')
     while True:
         block =  fd.read(BLOCK_SIZE)
         if not block.strip(): break
         state = nacl.crypto_generichash_update(state, block)
     if fd != sys.stdin: fd.close()
-    return nacl.crypto_generichash_final(state)[:outlen]
+    return nacl.crypto_generichash_final(state, outlen=outlen)
 
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
     # provides a high level function to sign files
