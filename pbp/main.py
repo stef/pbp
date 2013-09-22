@@ -1,13 +1,13 @@
 #!/usr/bin/env python2
-import argparse, os, sys, datetime
-from utils import b85encode, lockmem
+import argparse, os, sys, datetime, binascii
+from utils import b85encode, lockmem, split_by_n
 from SecureString import clearmem
 import publickey, pysodium as nacl
 from pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
 from pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
 from pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
 from pbp import mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
-from pbp import _prev_passphrase
+from pbp import hash_handler, _prev_passphrase
 
 def main():
     # main command line handler for pbp
@@ -19,6 +19,7 @@ def main():
     group.add_argument('--sign',        '-s',  dest='action', action='store_const', const='s',help="signs")
     group.add_argument('--master-sign', '-m',  dest='action', action='store_const', const='m',help="signs keys with your masterkey")
     group.add_argument('--verify',      '-v',  dest='action', action='store_const', const='v',help="verifies")
+    group.add_argument('--hash',        '-H',  dest='action', action='store_const', const='h',help="hashes")
     group.add_argument('--list',        '-l',  dest='action', action='store_const', const='l',help="lists public keys")
     group.add_argument('--list-secret', '-L',  dest='action', action='store_const', const='L',help="Lists secret keys")
     group.add_argument('--export-key',  '-x',  dest='action', action='store_const', const='x',help="export public key")
@@ -177,6 +178,11 @@ def main():
     elif opts.action=='R':
         ensure_size_good(opts)
         random_stream_handler(opts.outfile, opts.size)
+
+    elif opts.action=='h':
+        hsum = hash_handler(opts.infile, outlen=int(opts.size or '16'))
+        if hsum:
+            print ' '.join(split_by_n(binascii.hexlify(hsum),4))
 
 def ensure_self_specified(opts):
     # asserts that self is specified

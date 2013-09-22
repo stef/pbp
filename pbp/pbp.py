@@ -205,7 +205,7 @@ def hash_handler(infile=None, k='', outlen=16):
         if not block.strip(): break
         state = nacl.crypto_generichash_update(state, block)
     if fd != sys.stdin: fd.close()
-    return nacl.crypto_generichash_final(state)
+    return nacl.crypto_generichash_final(state)[:outlen]
 
 def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False):
     # provides a high level function to sign files
