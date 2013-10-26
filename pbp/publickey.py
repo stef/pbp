@@ -153,6 +153,12 @@ class Identity(object):
         signing_key = self.ms if master else self.ss
         return nacl.crypto_sign(msg, signing_key)
 
+    def verify(self, msg, master=False):
+        try:
+            return nacl.crypto_sign_open(msg, self.mp if master else self.sp)
+        except ValueError:
+            return
+
     def clear(self):
         if 'ms' in self.__dict__.keys():
             clearmem(self.ms)
@@ -188,7 +194,7 @@ def verify(msg, master=False, basedir=None):
             return keys.name, nacl.crypto_sign_open(msg, verifying_key)
         except ValueError: pass
 
-def buffered_verify(infd, outfd, basedir):
+def buffered_verify(infd, outfd, basedir, self = None):
     # calculate hash sum of data
     state = nacl.crypto_generichash_init()
     block = infd.read(int(BLOCK_SIZE/2))
@@ -215,7 +221,12 @@ def buffered_verify(infd, outfd, basedir):
         block = next
     hashsum = nacl.crypto_generichash_final(state)
 
-    sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
+    if self:
+        # verify specific key
+        sender, hashsum1 = self.verify(sig+hashsum) or ([], '')
+    else:
+        # find corresponding key
+        sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
 
     if sender and hashsum == hashsum1:
         return sender
