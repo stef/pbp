@@ -359,14 +359,14 @@ def dh2_handler(peer):
     # when initiating an DH exchange
     exp = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
     public = nacl.crypto_scalarmult_curve25519_base(exp)
-    secret = nacl.crypto_scalarmult_curve25519(exp, b85decode(peer))
+    secret = nacl.crypto_scalarmult_curve25519(exp, peer)
     return (public, secret)
 
 def dh3_handler(public, exp):
     # finishes the 3 step DH key exchange by combining the public
     # component of the peer, generated in the 2nd step by the peer,
     # using the exponent generated when the exchange was initiated.
-    secret = nacl.crypto_scalarmult_curve25519(b85decode(exp), b85decode(public))
+    secret = nacl.crypto_scalarmult_curve25519(exp, public)
     return secret
 
 def random_stream_handler(outfile = None, size = None):

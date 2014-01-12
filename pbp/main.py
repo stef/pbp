@@ -172,7 +172,7 @@ def main():
     # receive ECDH
     elif opts.action=='d2':
         ensure_dhparam_specified(opts)
-        params = dh2_handler(opts.dh_param)
+        params = dh2_handler(binascii.unhexlify(opts.dh_param))
         if params:
             #print "public component", b85encode(params[0])
             print "public component", binascii.hexlify(params[0])
@@ -184,7 +184,7 @@ def main():
     elif opts.action=='d3':
         ensure_dhparam_specified(opts)
         ensure_dhexp_specified(opts)
-        sec = dh3_handler(opts.dh_param, opts.dh_exp)
+        sec = dh3_handler(binascii.unhexlify(opts.dh_param), binascii.unhexlify(opts.dh_exp))
         if sec:
             #print "shared secret", b85encode(sec)
             print "shared secret", binascii.hexlify(sec)
