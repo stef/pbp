@@ -6,7 +6,7 @@ import publickey, pysodium as nacl
 from pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
 from pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
 from pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
-from pbp import mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
+from pbp import dh1_handler, dh2_handler, dh3_handler, mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
 from pbp import hash_handler, _prev_passphrase
 
 def main():
@@ -27,6 +27,9 @@ def main():
     group.add_argument('--check-sigs',  '-C',  dest='action', action='store_const', const='C',help="lists all known sigs on a public key")
     group.add_argument('--fcrypt',      '-e',  dest='action', action='store_const', const='e',help="encrypts a message using PFS to a peer")
     group.add_argument('--fdecrypt',    '-E',  dest='action', action='store_const', const='E',help="decrypts a message using PFS to a peer")
+    group.add_argument(                 '-D1', dest='action', action='store_const', const='d1',help="initiates an ECDH key exchange")
+    group.add_argument(                 '-D2', dest='action', action='store_const', const='d2',help="responds to an ECDH key request")
+    group.add_argument(                 '-D3', dest='action', action='store_const', const='d3',help="finalizes an ECDH key exchange")
     group.add_argument('--dh-start',    '-Ds', dest='action', action='store_const', const='ds',help="initiates an ECDH key exchange")
     group.add_argument('--dh-end',      '-De', dest='action', action='store_const', const='de',help="finalizes an ECDH key exchange")
     group.add_argument('--rand-stream', '-R',  dest='action', action='store_const', const='R',help="generate arbitrary random stream")
@@ -36,6 +39,8 @@ def main():
     parser.add_argument('--basedir',    '-b', '--base-dir', help="set the base directory for all key storage needs", default=defaultbase)
     parser.add_argument('--self',       '-S', help="sets your own key")
     parser.add_argument('--key',        '-k', help="some password or secret")
+    parser.add_argument('--dh-param',   '-DP',help="public parameter for ECDH key exchange")
+    parser.add_argument('--dh-exp',     '-DE',help="secret exp for final step of a ECDH key exchange")
     parser.add_argument('--size',       '-Rs',help="size of random stream to generate")
     parser.add_argument('--dh-peers',   '-Dp',help="the number of peers participating in a ECDH key exchange")
     parser.add_argument('--infile',     '-i', help="file to operate on")
@@ -156,9 +161,38 @@ def main():
                             self=opts.self,
                             basedir=opts.basedir)
     # start ECDH
+    elif opts.action=='d1':
+        params = dh1_handler()
+        if params:
+            #print "secret exponent", b85encode(params[0])
+            print "secret exponent", binascii.hexlify(params[0])
+            #print "public component", b85encode(params[1])
+            print "public component", binascii.hexlify(params[1])
+            clearmem(params[0])
+    # receive ECDH
+    elif opts.action=='d2':
+        ensure_dhparam_specified(opts)
+        params = dh2_handler(opts.dh_param)
+        if params:
+            #print "public component", b85encode(params[0])
+            print "public component", binascii.hexlify(params[0])
+            #print "shared secret", b85encode(params[1])
+            print "shared secret", binascii.hexlify(params[1])
+            clearmem(params[0])
+            clearmem(params[1])
+    # finish ECDH
+    elif opts.action=='d3':
+        ensure_dhparam_specified(opts)
+        ensure_dhexp_specified(opts)
+        sec = dh3_handler(opts.dh_param, opts.dh_exp)
+        if sec:
+            #print "shared secret", b85encode(sec)
+            print "shared secret", binascii.hexlify(sec)
+            clearmem(sec)
+    # start MPECDH
     elif opts.action=='ds':
         ensure_self_specified(opts)
-        ensure_dhparam_specified(opts)
+        ensure_dhpeers_specified(opts)
         ensure_name_specified(opts)
         sec = mpecdh_start_handler(opts.name, opts.dh_peers, opts.self, opts.infile, opts.outfile, opts.basedir)
         if sec:
@@ -166,7 +200,7 @@ def main():
             clearmem(sec)
             sec = None
 
-    # finish ECDH
+    # finish MPECDH
     elif opts.action=='de':
         ensure_self_specified(opts)
         ensure_name_specified(opts)
@@ -215,10 +249,20 @@ def ensure_only_one_recipient(opts):
     if len(opts.recipient) > 1:
         die("Error: you can only PFS decrypt from one recipient.")
 
-def ensure_dhparam_specified(opts):
-    # asserts that dhparam is specified
+def ensure_dhexp_specified(opts):
+    # asserts that dhexp is specified
+    if not opts.dh_exp:
+        die("Error: need to specify number of peers in the ECDH key exchange using the -DE param")
+
+def ensure_dhpeers_specified(opts):
+    # asserts that dhpeers is specified
     if not opts.dh_peers:
         die("Error: need to specify number of peers in the ECDH key exchange using the -Dp param")
+
+def ensure_dhparam_specified(opts):
+    # asserts that dhpeers is specified
+    if not opts.dh_param:
+        die("Error: need to specify number of peers in the ECDH key exchange using the -DP param")
 
 def ensure_size_good(opts):
     # asserts that size is specified, and expands any postfixes KMGT
