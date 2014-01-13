@@ -6,3 +6,4 @@ dist/
 pbp.egg-info/
 test-pbp
 todo
+.zshhistory
