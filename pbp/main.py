@@ -3,6 +3,7 @@ import argparse, os, sys, datetime, binascii
 from utils import b85encode, lockmem, split_by_n
 from SecureString import clearmem
 import publickey, pysodium as nacl
+import pitchfork
 from pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
 from pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
 from pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
@@ -34,6 +35,8 @@ def main():
     group.add_argument('--dh-end',      '-De', dest='action', action='store_const', const='de',help="finalizes an ECDH key exchange")
     group.add_argument('--rand-stream', '-R',  dest='action', action='store_const', const='R',help="generate arbitrary random stream")
 
+    parser.add_argument('--pitchfork',  '-P',  dest='PITCHFORK', action='store_const', const='P',help="arms PITCHFORK", default=False)
+    parser.add_argument('--signature',  '-z', help="sets the pitchfork sig to verify")
     parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
     parser.add_argument('--basedir',    '-b', '--base-dir', help="set the base directory for all key storage needs", default=defaultbase)
@@ -68,6 +71,15 @@ def main():
 
     # encrypt
     elif opts.action=='c':
+        if opts.PITCHFORK:
+            ensure_recipient_specified(opts)
+            pitchfork.init()
+            res=pitchfork.encrypt(opts.recipient[0],
+                                   infile=opts.infile,
+                                   outfile=opts.outfile)
+            if res:
+                print >>sys.stderr, b85encode(res)
+            return
         if opts.recipient or opts.self:
             ensure_self_specified(opts)
             ensure_recipient_specified(opts)
@@ -79,13 +91,29 @@ def main():
 
     # decrypt
     elif opts.action=='d':
-        decrypt_handler(infile=opts.infile,
-                        outfile=opts.outfile,
-                        self=opts.self,
-                        basedir=opts.basedir)
+        if opts.PITCHFORK:
+            ensure_recipient_specified(opts)
+            pitchfork.init()
+            res=pitchfork.decrypt(opts.recipient[0],
+                                  infile=opts.infile,
+                                  outfile=opts.outfile)
+        else:
+            decrypt_handler(infile=opts.infile,
+                            outfile=opts.outfile,
+                            self=opts.self,
+                            basedir=opts.basedir)
 
     # sign
     elif opts.action=='s':
+        if opts.PITCHFORK:
+            ensure_recipient_specified(opts)
+            pitchfork.init()
+            res=pitchfork.sign(opts.recipient[0],
+                               infile=opts.infile,
+                               outfile=opts.outfile)
+            if res:
+                print >>sys.stderr, b85encode(res[0]), b85encode(res[1])
+            return
         ensure_self_specified(opts)
         sign_handler(infile=opts.infile,
                      outfile=opts.outfile,
@@ -95,9 +123,18 @@ def main():
 
     # verify
     elif opts.action=='v':
-        res = verify_handler(infile=opts.infile,
-                             outfile=opts.outfile,
-                             basedir=opts.basedir)
+        if opts.PITCHFORK:
+            ensure_signature_specified(opts)
+            ensure_recipient_specified(opts)
+            pitchfork.init()
+            res=pitchfork.verify(opts.signature,
+                                 opts.recipient[0],
+                                 infile=opts.infile,
+                                 outfile=opts.outfile)
+        else:
+            res = verify_handler(infile=opts.infile,
+                                 outfile=opts.outfile,
+                                 basedir=opts.basedir)
         if res:
             print >>sys.stderr, "good message from", res
         else:
@@ -162,32 +199,41 @@ def main():
                             basedir=opts.basedir)
     # start ECDH
     elif opts.action=='d1':
-        params = dh1_handler()
+        if opts.PITCHFORK:
+            ensure_recipient_specified(opts)
+            pitchfork.init()
+            params = pitchfork.start_ecdh(opts.recipient[0])
+        else:
+            params = dh1_handler()
         if params:
-            #print "secret exponent", b85encode(params[0])
-            print "secret exponent", binascii.hexlify(params[0])
-            #print "public component", b85encode(params[1])
-            print "public component", binascii.hexlify(params[1])
+            print "secret exponent", b85encode(params[0])
+            print "public component", b85encode(params[1])
             clearmem(params[0])
     # receive ECDH
     elif opts.action=='d2':
         ensure_dhparam_specified(opts)
-        params = dh2_handler(binascii.unhexlify(opts.dh_param))
+        if opts.PITCHFORK:
+            ensure_recipient_specified(opts)
+            pitchfork.init()
+            params = pitchfork.resp_ecdh(opts.dh_param, opts.recipient[0])
+        else:
+            params = dh2_handler(binascii.unhexlify(opts.dh_param))
         if params:
-            #print "public component", b85encode(params[0])
-            print "public component", binascii.hexlify(params[0])
-            #print "shared secret", b85encode(params[1])
-            print "shared secret", binascii.hexlify(params[1])
+            print "shared secret", b85encode(params[1])
+            print "public component", b85encode(params[0])
             clearmem(params[0])
             clearmem(params[1])
     # finish ECDH
     elif opts.action=='d3':
         ensure_dhparam_specified(opts)
         ensure_dhexp_specified(opts)
-        sec = dh3_handler(binascii.unhexlify(opts.dh_param), binascii.unhexlify(opts.dh_exp))
+        if opts.PITCHFORK:
+            pitchfork.init()
+            sec = pitchfork.end_ecdh(opts.dh_param, opts.dh_exp)
+        else:
+            sec = dh3_handler(binascii.unhexlify(opts.dh_param), binascii.unhexlify(opts.dh_exp))
         if sec:
-            #print "shared secret", b85encode(sec)
-            print "shared secret", binascii.hexlify(sec)
+            print "shared secret", b85encode(sec)
             clearmem(sec)
     # start MPECDH
     elif opts.action=='ds':
@@ -212,7 +258,11 @@ def main():
 
     elif opts.action=='R':
         ensure_size_good(opts)
-        random_stream_handler(opts.outfile, opts.size)
+        if opts.PITCHFORK:
+            pitchfork.init()
+            pitchfork.rng(int(opts.size), opts.outfile)
+        else:
+            random_stream_handler(opts.outfile, opts.size)
 
     elif opts.action=='h':
         hsum = hash_handler(opts.infile, k=load_key(opts.key), outlen=int(opts.size or '16'))
@@ -243,6 +293,12 @@ def ensure_recipient_specified(opts):
     if not opts.recipient:
         die("Error: need to specify a recipient to "
             "operate on using the --recipient param")
+
+def ensure_signature_specified(opts):
+    # asserts that recipient is specified
+    if not opts.signature:
+        die("Error: need to specify a signature to "
+            "operate on using the --signature param")
 
 def ensure_only_one_recipient(opts):
     # asserts that only one recipient is specified

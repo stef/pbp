@@ -1,0 +1,269 @@
+#!/usr/bin/env python
+
+# #!#!#!#!#!#!#!#!#!#!#!#!#!#!#
+# need to call init()
+# before using
+# #!#!#!#!#!#!#!#!#!#!#!#!#!#!#
+
+import sys
+import usb.core
+import usb.util
+import pysodium as nacl
+from utils import split_by_n, inputfd, outputfd, b85encode, b85decode
+
+idVendor=0x0483
+idProduct=0x5740
+DEBUG = False
+
+if DEBUG:
+    import os
+    os.environ['PYUSB_DEBUG_LEVEL'] = 'warning' # 'debug'
+    os.environ['PYUSB_DEBUG'] = 'warning' # 'debug'
+    import time
+
+# PITCHFORK Consts
+STORAGE_ID_LEN=16
+PEER_NAME_MAX=32
+
+USB_CRYPTO_EP_CTRL_IN = 0x01
+USB_CRYPTO_EP_DATA_IN = 0x02
+USB_CRYPTO_EP_CTRL_OUT = 0x81
+USB_CRYPTO_EP_DATA_OUT = 0x82
+
+USB_CRYPTO_CMD_ENCRYPT = chr(0)
+USB_CRYPTO_CMD_DECRYPT = chr(1)
+USB_CRYPTO_CMD_SIGN = chr(2)
+USB_CRYPTO_CMD_VERIFY = chr(3)
+USB_CRYPTO_CMD_ECDH_START = chr(4)
+USB_CRYPTO_CMD_ECDH_RESPOND = chr(5)
+USB_CRYPTO_CMD_ECDH_END = chr(6)
+USB_CRYPTO_CMD_RNG = chr(7)
+USB_CRYPTO_CMD_STOP = chr(8)
+USB_CRYPTO_CMD_STORAGE = chr(9)
+
+# USB endpoint cache
+eps={}
+
+#####  crypto ops  #####
+
+def encrypt(peer, infile=None, outfile=None):
+    if len(peer)>PEER_NAME_MAX:
+        raise ValueError
+
+    fd = inputfd(infile)
+    outfd = outputfd(outfile or infile+'.pbp' if infile else '-')
+    reset()
+
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_ENCRYPT+peer)
+    # needs to return keyid read it here
+    keyid = ''.join([chr(x) for x in eps[USB_CRYPTO_EP_CTRL_OUT].read(STORAGE_ID_LEN)])
+    if(keyid.startswith('err: ')):
+        raise ValueError(keyid)
+    if len(keyid)<STORAGE_ID_LEN:
+        raise ValueError
+    pkt = fd.read(32768)
+    #if len(pkt)>0:
+    #    outfd.write(keyid)
+    while pkt:
+        wrote = eps[USB_CRYPTO_EP_DATA_IN].write(pkt)
+        if (wrote<32768 and not (wrote&0x3f)):
+            eps[USB_CRYPTO_EP_DATA_IN].write(None)
+        outfd.write(''.join([chr(x) for x in eps[USB_CRYPTO_EP_DATA_OUT].read(wrote+40)]))
+        pkt = fd.read(32768)
+    if(len(pkt)==32768):
+        eps[USB_CRYPTO_EP_DATA_IN].write(None)
+
+    reset()
+
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
+    return keyid
+
+def decrypt(keyid, infile=None, outfile=None):
+    keyid=b85decode(keyid)
+    if(len(keyid)!=STORAGE_ID_LEN):
+        raise ValueError
+
+    fd = inputfd(infile)
+    outfd = outputfd(outfile or infile+'.pbp' if infile else '-')
+
+    reset()
+
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_DECRYPT+keyid)
+    tmp = read_ctrl(timeout=50)
+    if(tmp and tmp.startswith('err: ')):
+       raise ValueError(tmp)
+
+    pkt = fd.read(32808)
+    #if len(pkt)>0:
+    #    outfd.write(keyid)
+    while pkt:
+        wrote = eps[USB_CRYPTO_EP_DATA_IN].write(pkt)
+        if (wrote<32808 and not (wrote&0x3f)):
+            eps[USB_CRYPTO_EP_DATA_IN].write(None)
+        tmp = read_ctrl(timeout=50)
+        if(tmp and tmp.startswith('err: ')):
+            raise ValueError(tmp)
+        outfd.write(''.join([chr(x) for x in eps[USB_CRYPTO_EP_DATA_OUT].read(wrote-40)]))
+        pkt = fd.read(32808)
+    if(len(pkt)==32808):
+        eps[USB_CRYPTO_EP_DATA_IN].write(None)
+
+    reset()
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
+
+def sign(peer, infile=None, outfile=None):
+    if len(peer)>PEER_NAME_MAX:
+        raise ValueError
+
+    fd = inputfd(infile)
+    outfd = outputfd(outfile)
+
+    reset()
+    written=0
+
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_SIGN+peer)
+    # needs to return keyid read it here
+    keyid = ''.join([chr(x) for x in eps[USB_CRYPTO_EP_CTRL_OUT].read(STORAGE_ID_LEN)])
+    if(keyid.startswith('err: ')):
+       return
+    if len(keyid)<STORAGE_ID_LEN:
+        return
+    pkt = fd.read(32768)
+    #if len(pkt)>0:
+    #    outfd.write(keyid)
+    while pkt:
+        written+=eps[USB_CRYPTO_EP_DATA_IN].write(pkt)
+        pkt = fd.read(32768)
+        if outfile: outfd.write(pkt)
+    if(written%64==0):
+        eps[USB_CRYPTO_EP_DATA_IN].write(None)
+    read_ctrl()
+    res = eps[USB_CRYPTO_EP_DATA_OUT].read(nacl.crypto_generichash_BYTES)
+
+    read_ctrl()
+    reset()
+    if fd != sys.stdin: fd.close()
+    if outfd != sys.stdout: outfd.close()
+    return ''.join([chr(x) for x in res]), keyid
+
+def verify(sign, keyid, infile=None, outfile=None):
+    keyid=b85decode(keyid)
+    sign=b85decode(sign)
+    if(len(keyid)!=STORAGE_ID_LEN or len(sign)!= nacl.crypto_generichash_BYTES):
+        raise ValueError
+
+    fd = inputfd(infile)
+    outfd = outputfd(outfile) if outfile else None
+
+    reset()
+    written=0
+
+    eps[USB_CRYPTO_EP_CTRL_IN].write("%s%s%s" % (USB_CRYPTO_CMD_VERIFY,sign,keyid))
+    tmp=read_ctrl(timeout=50)
+    if(tmp and tmp.startswith('err: ')):
+       return
+    pkt = fd.read(32768)
+    #if len(pkt)>0:
+    #    outfd.write(keyid)
+    while pkt:
+        written+=eps[USB_CRYPTO_EP_DATA_IN].write(pkt)
+        if outfd: outfd.write(pkt)
+        pkt = fd.read(32768)
+    if(written%64==0):
+        eps[USB_CRYPTO_EP_DATA_IN].write(None)
+    read_ctrl()
+    res = eps[USB_CRYPTO_EP_DATA_OUT].read(1)
+    read_ctrl()
+    reset()
+    if fd != sys.stdin: fd.close()
+    if outfd and outfd != sys.stdout: outfd.close()
+    return res[0]
+
+def start_ecdh(name):
+    if DEBUG: start = time.time()
+    flush(USB_CRYPTO_EP_DATA_OUT)
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_ECDH_START+name)
+    resp=eps[USB_CRYPTO_EP_DATA_OUT].read(64)
+    reset()
+    resp = ''.join([chr(x) for x in resp])
+    return (resp[:16], resp[16:])
+
+def resp_ecdh(pub, name):
+    pub=b85decode(pub)
+    if DEBUG: start = time.time()
+    flush(USB_CRYPTO_EP_DATA_OUT)
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_ECDH_RESPOND+pub+name)
+    resp=eps[USB_CRYPTO_EP_DATA_OUT].read(64)
+    reset()
+    resp = ''.join([chr(x) for x in resp])
+    return (resp[16:], resp[:16])
+
+def end_ecdh(pub, keyid):
+    pub=b85decode(pub)
+    keyid=b85decode(keyid)
+    if DEBUG: start = time.time()
+    flush(USB_CRYPTO_EP_DATA_OUT)
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_ECDH_END+pub+keyid)
+    resp=eps[USB_CRYPTO_EP_DATA_OUT].read(64)
+    reset()
+    return ''.join([chr(x) for x in resp])
+
+def rng(size, outfile=None):
+    outfd = outputfd(outfile or '-')
+    reset()
+    read = 0
+    res = ''
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_RNG)
+    while(read<size):
+        res=eps[USB_CRYPTO_EP_DATA_OUT].read(32768 if size - read > 32768 else size -read)
+        outfd.write(''.join([chr(x) for x in res]))
+        read += len(res)
+
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_STOP)
+    read_ctrl()
+    reset()
+
+#####  support ops  #####
+def init():
+    dev = usb.core.find(idVendor=idVendor, idProduct=idProduct)
+    cfg = dev.get_active_configuration()
+    interface_number = cfg[(0,0)].bInterfaceNumber
+    intf = usb.util.find_descriptor(cfg, bInterfaceNumber = interface_number)
+    for ep in intf:
+        eps[ep.bEndpointAddress]=ep
+
+def reset():
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_STOP)
+    flush(USB_CRYPTO_EP_DATA_OUT)
+    flush(USB_CRYPTO_EP_CTRL_OUT)
+
+def flush(ep, quiet=True):
+    while(True):
+        try:
+            tmp = eps[ep].read(64, timeout=10)
+        except usb.core.USBError:
+            break
+        if not quiet: print '>', len(tmp), repr(''.join([chr(x) for x in tmp]))
+
+def read_ctrl(size=32768, timeout=10):
+    try:
+        tmp = eps[USB_CRYPTO_EP_CTRL_OUT].read(size, timeout=timeout)
+    except usb.core.USBError:
+        return
+    return ''.join([chr(x) for x in tmp])
+
+######  software archaeological artifacts  #######
+
+#init()
+#print >>sys.stderr, b85encode(encrypt('test user a'))
+#encrypt('test user a')
+# todo test decrypt/encrypt falling on buffer boundary
+#decrypt(b85decode('5wo?6Ppot4Aa0VC_{P!G'))
+#tmp = sign('test user a')
+#if tmp:
+#    print b85encode(tmp[0])
+#    print b85encode(tmp[1])
+#print verify(b85decode('m$|4hT<$PhUe9zt4c-y1xd?r%2Ki1B+}_Nfi6Z`j'),
+#             b85decode('5wo?6Ppot4Aa0VC_{P!G'))
