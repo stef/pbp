@@ -10,10 +10,14 @@ secrecy mode and a multi-party DH mode.
 
 Installation
 
+You possibly need to run (or an equivalent command) sudo apt-get install git
+python-virtualenv gcc python-dev libffi-dev to satisfy all basic dependencies.
+
 pip install pbp
 
-you possibly need to run (or an equivalent command) sudo apt-get install git
-python-virtualenv gcc python-dev libffi-dev to satisfy all basic dependencies.
+optionally for PITCHFORK support also
+
+pip install pyusb==1.0.0b1
 
 Design goals:
 
