@@ -9,8 +9,17 @@ import pbp
 SIGPREFIX = '\nnacl-'
 BLOCK_SIZE = 1 << 15
 
+class Registry(type):
+    _keys = {}
+    def __call__(cls, *args, **kwargs):
+        name=args[0]
+        if name not in cls._keys:
+            cls._keys[name] = super(Registry, cls).__call__(*args, **kwargs)
+        return cls._keys[name]
+
 class Identity(object):
     """implements a public keyring with a master key and two sub-keys"""
+    __metaclass__ = Registry
     def __init__(self, name, basedir=None, create=False, publicOnly=False):
         """initializes the Identity from the keystore or creates one"""
         self.name=name
@@ -90,7 +99,7 @@ class Identity(object):
         elif type in ['cs', 'ss']:
             tmp = get_sk_filename(self.basedir, self.name)
             if os.path.exists(tmp):
-                tmp = self.decrypt_with_user_pw(tmp, 'subkeys')
+                tmp = self.decrypt_with_user_pw(tmp, '%s subkey' % ('signing' if type == 'ss' else 'encryption'))
                 if type == 'ss': self.ss = tmp[:nacl.crypto_sign_SECRETKEYBYTES]
                 if type == 'cs': self.cs = tmp[nacl.crypto_sign_SECRETKEYBYTES:]
 
@@ -181,8 +190,9 @@ class Identity(object):
         hashsum = nacl.crypto_generichash_final(state)
 
         # sign hashsum
-        sig = me.sign(hashsum)[:nacl.crypto_sign_BYTES]
-        me.clear()
+        sig = self.sign(hashsum)[:nacl.crypto_sign_BYTES]
+        print 'clearing'
+        #self.clear()
         if armor:
             sig = "%s%s" % (SIGPREFIX, b85encode(sig))
         outfd.write(sig)
