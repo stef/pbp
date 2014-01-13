@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
 import getpass, sys, struct
-from utils import b85encode, b85decode, lockmem
+from utils import b85encode, b85decode, lockmem, inputfd, outputfd
 from SecureString import clearmem
 import chaining, publickey, ecdh, seeds
 
@@ -81,19 +81,6 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
     if cleark: clearmem(k)
     if res:
         return res
-
-def inputfd(infile):
-    if not infile or infile == '-':
-        return sys.stdin
-    else:
-        return open(infile,'r')
-
-def outputfd(outfile):
-    if not outfile or outfile == '-':
-        return sys.stdout
-    else:
-        return open(outfile,'w')
-
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     # provides a high level function to do encryption of files

@@ -101,3 +101,16 @@ def lockmem():
        return
    if libc.mlockall(_MCL_CURRENT | _MCL_FUTURE):
        print >>sys.stderr, "cannot lock memory"
+
+def inputfd(infile):
+    if not infile or infile == '-':
+        return sys.stdin
+    else:
+        return open(infile,'r')
+
+def outputfd(outfile):
+    if not outfile or outfile == '-':
+        return sys.stdout
+    else:
+        return open(outfile,'w')
+
