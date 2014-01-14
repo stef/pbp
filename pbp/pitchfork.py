@@ -230,7 +230,10 @@ def rng(size, outfile=None):
 def listkeys(peer):
     reset()
     eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_LIST_KEYS+(peer or ''))
-    buf=''.join([chr(x) for x in eps[USB_CRYPTO_EP_DATA_OUT].read(32768)])
+    try:
+        buf=''.join([chr(x) for x in eps[USB_CRYPTO_EP_DATA_OUT].read(32768)])
+    except usb.core.USBError:
+        return
     reset()
     if len(buf)<8:
         return

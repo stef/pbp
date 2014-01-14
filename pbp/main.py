@@ -61,9 +61,13 @@ def main():
     elif opts.action=='l':
         if opts.PITCHFORK:
             pitchfork.init()
-            keys, stats = pitchfork.listkeys(opts.name)
-            pitchfork.print_keys(keys)
-            pitchfork.storage_stats(stats, keys)
+            res = pitchfork.listkeys(opts.name)
+            if(res):
+                keys, stats = res
+                pitchfork.print_keys(keys)
+                pitchfork.storage_stats(stats, keys)
+            else:
+                print 'none'
         else:
             for i in publickey.get_public_keys(opts.basedir):
                 print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
