@@ -61,7 +61,7 @@ def main():
     elif opts.action=='l':
         if opts.PITCHFORK:
             pitchfork.init()
-            keys, stats = pitchfork.listkeys()
+            keys, stats = pitchfork.listkeys(opts.name)
             pitchfork.print_keys(keys)
             pitchfork.storage_stats(stats, keys)
         else:
