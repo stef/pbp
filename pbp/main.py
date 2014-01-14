@@ -59,9 +59,15 @@ def main():
 
     # list public keys
     elif opts.action=='l':
-        for i in publickey.get_public_keys(opts.basedir):
-            print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
-                   else 'invalid'), i.keyid(), i.name
+        if opts.PITCHFORK:
+            pitchfork.init()
+            keys, stats = pitchfork.listkeys()
+            pitchfork.print_keys(keys)
+            pitchfork.storage_stats(stats, keys)
+        else:
+            for i in publickey.get_public_keys(opts.basedir):
+                print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
+                       else 'invalid'), i.keyid(), i.name
 
     # list secret keys
     elif opts.action=='L':

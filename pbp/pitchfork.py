@@ -10,6 +10,7 @@ import usb.core
 import usb.util
 import pysodium as nacl
 from utils import split_by_n, inputfd, outputfd, b85encode, b85decode
+from struct import unpack
 
 idVendor=0x0483
 idProduct=0x5740
@@ -37,9 +38,10 @@ USB_CRYPTO_CMD_VERIFY = chr(3)
 USB_CRYPTO_CMD_ECDH_START = chr(4)
 USB_CRYPTO_CMD_ECDH_RESPOND = chr(5)
 USB_CRYPTO_CMD_ECDH_END = chr(6)
-USB_CRYPTO_CMD_RNG = chr(7)
-USB_CRYPTO_CMD_STOP = chr(8)
-USB_CRYPTO_CMD_STORAGE = chr(9)
+USB_CRYPTO_CMD_LIST_KEYS = chr(7)
+USB_CRYPTO_CMD_RNG = chr(8)
+USB_CRYPTO_CMD_STOP = chr(9)
+USB_CRYPTO_CMD_STORAGE = chr(10)
 
 # USB endpoint cache
 eps={}
@@ -225,6 +227,39 @@ def rng(size, outfile=None):
     read_ctrl()
     reset()
 
+def listkeys():
+    reset()
+    eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_LIST_KEYS)
+    buf=''.join([chr(x) for x in eps[USB_CRYPTO_EP_DATA_OUT].read(32768)])
+    reset()
+    if len(buf)<8:
+        return
+    i=0
+    keys={}
+    keycnt = 0
+    dups = 0
+    while(i<len(buf)-8):
+        name = buf[i:buf[i:].find('\0')+i]
+        i+=len(name)+1
+        keyid = buf[i:i+16]
+        i+=16
+        keycnt+=1
+        if not name in keys:
+            keys[name]=[]
+        if keyid not in keys[name]:
+            keys[name].append(keyid)
+            keycnt+=1
+        else:
+            dups+=1
+
+    stats={'deleted': unpack('H',buf[-8:-6])[0],
+           'corrupt': unpack('H',buf[-6:-4])[0],
+           'noname': unpack('H',buf[-4:-2])[0],
+           'size': unpack('H',buf[-2:])[0],
+           'duplicates': dups,
+           'key count': keycnt}
+    return keys, stats
+
 #####  support ops  #####
 def init():
     dev = usb.core.find(idVendor=idVendor, idProduct=idProduct)
@@ -253,6 +288,30 @@ def read_ctrl(size=32768, timeout=10):
     except usb.core.USBError:
         return
     return ''.join([chr(x) for x in tmp])
+
+def storage_stats(stats, keys):
+    print 'keys: noname =', stats['noname'],
+    print 'corrupt =',  stats['corrupt'],
+    print 'duplicates =',  stats['duplicates'],
+    print 'deleted =', stats['deleted']
+    size = stats['size']
+    reclaimable = size - (64                                           # userdata
+                          + len(''.join(keys.keys())) + (35*len(keys)) # name mapping records
+                          + 81*stats['key count'])                     # sizeof(seedrecord) * keys
+    purge = size - (64                                           # userdata
+                    + len(''.join(keys.keys())) + (35*len(keys)) # name mapping records
+                    + 81*len(keys))                              # sizeof(seedrecord) * keys
+    print 'storage full =', (size*100)>>16, '%', size, 'bytes,',
+    print 'reclaimable =', (reclaimable*100)/size, '%', reclaimable, 'bytes,',
+    print 'purgable =', (purge*100)/size, '%', purge, 'bytes'
+
+def print_keys(keys):
+    for n,i in keys.items():
+        print n
+        print '\t%s' % '\n\t'.join([b85encode(x) for x in i][-3:])
+        if len(i)>3:
+            print '   has', len(i)-3, 'more keys...'
+        print
 
 ######  software archaeological artifacts  #######
 
