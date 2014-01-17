@@ -13,9 +13,10 @@ class Registry(type):
     _keys = {}
     def __call__(cls, *args, **kwargs):
         name=args[0]
-        if name not in cls._keys:
-            cls._keys[name] = super(Registry, cls).__call__(*args, **kwargs)
-        return cls._keys[name]
+        basedir=args[1] if len(args)>1 else kwargs.get('basedir')
+        if (name,basedir) not in cls._keys:
+            cls._keys[(name,basedir)] = super(Registry, cls).__call__(*args, **kwargs)
+        return cls._keys[(name,basedir)]
 
 class Identity(object):
     """implements a public keyring with a master key and two sub-keys"""
@@ -102,11 +103,15 @@ class Identity(object):
                 tmp = self.decrypt_with_user_pw(tmp, '%s subkey' % ('signing' if type == 'ss' else 'encryption'))
                 if type == 'ss': self.ss = tmp[:nacl.crypto_sign_SECRETKEYBYTES]
                 if type == 'cs': self.cs = tmp[nacl.crypto_sign_SECRETKEYBYTES:]
+            else:
+                raise ValueError("missing key")
 
         elif type == 'ms':
             tmp = get_sk_filename(self.basedir, self.name, ext='mk')
             if os.path.exists(tmp):
                 self.ms = self.decrypt_with_user_pw(tmp, 'master key')
+            else:
+                raise ValueError("missing key")
 
     def decrypt_with_user_pw(self, filename, pw_for):
         with file(filename) as fd:

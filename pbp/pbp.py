@@ -7,7 +7,7 @@ import chaining, publickey, ecdh, seeds
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
-BLOCK_SIZE = 1024*1024
+BLOCK_SIZE = 32*1024
 
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
@@ -124,7 +124,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     clearmem(key)
 
     if fd != sys.stdin: fd.close()
-    if outfd != sys.stdout: outfd.close()
+    if outfd != sys.stdout and type(outfd) == file: outfd.close()
 
 def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     # provides a high level function to do decryption of files
@@ -140,9 +140,9 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     outfd = outputfd(outfile)
 
     key = None
-    type=struct.unpack('B',fd.read(1))[0]
+    _type=struct.unpack('B',fd.read(1))[0]
     # asym
-    if type == ASYM_CIPHER:
+    if _type == ASYM_CIPHER:
         if not self:
             print >>sys.stderr, "Error: need to specify your own key using the --self param"
             raise ValueError
@@ -155,33 +155,34 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         me = publickey.Identity(self, basedir=basedir)
         me.clear()
         sender, key = me.keydecrypt(r)
-        if sender:
-            print >>sys.stderr, 'good key from', sender
-        else:
-            print >>sys.stderr, 'decryption failed'
+        if not sender:
+        #    print >>sys.stderr, 'good key from', sender
+        #else:
+            raise ValueError('decryption failed')
     # sym
-    elif type == BLOCK_CIPHER:
+    elif _type == BLOCK_CIPHER:
         pwd = getpass.getpass('Passphrase for decrypting: ')
         key =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
         clearmem(pwd)
     else:
-        print >>sys.stderr,  'decryption failed'
+        raise ValueError('decryption failed')
 
     if key:
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         while len(nonce) == nacl.crypto_secretbox_NONCEBYTES:
             buf = fd.read(BLOCK_SIZE)
             if not buf:
-                print >>sys.stderr, 'decryption failed'
+                raise ValueError('decryption failed')
                 break
             outfd.write(decrypt((nonce, buf), k = key))
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         clearmem(key)
         if 0 < len(nonce) < nacl.crypto_secretbox_NONCEBYTES:
-            print >>sys.stderr, 'decryption failed'
+            raise ValueError('decryption failed')
 
     if fd != sys.stdin: fd.close()
-    if outfd != sys.stdout: outfd.close()
+    if outfd != sys.stdout and type(outfd) == file: outfd.close()
+    return sender
 
 def hash_handler(infile=None, k='', outlen=16):
     fd = inputfd(infile)

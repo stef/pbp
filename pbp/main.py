@@ -108,10 +108,12 @@ def main():
                                   infile=opts.infile,
                                   outfile=opts.outfile)
         else:
-            decrypt_handler(infile=opts.infile,
+            sender = decrypt_handler(infile=opts.infile,
                             outfile=opts.outfile,
                             self=opts.self,
                             basedir=opts.basedir)
+            if sender:
+                print >>sys.stderr, 'good message from', sender
 
     # sign
     elif opts.action=='s':

@@ -103,12 +103,14 @@ def lockmem():
        print >>sys.stderr, "cannot lock memory"
 
 def inputfd(infile):
+    if hasattr(infile, 'read'): return infile
     if not infile or infile == '-':
         return sys.stdin
     else:
         return open(infile,'r')
 
 def outputfd(outfile):
+    if hasattr(outfile, 'read'): return outfile
     if not outfile or outfile == '-':
         return sys.stdout
     else:
