@@ -246,14 +246,13 @@ def listkeys(peer):
         i+=len(name)+1
         keyid = buf[i:i+16]
         i+=16
-        keycnt+=1
         if not name in keys:
             keys[name]=[]
         if keyid not in keys[name]:
             keys[name].append(keyid)
-            keycnt+=1
         else:
             dups+=1
+        keycnt+=1
 
     stats={'deleted': unpack('H',buf[-8:-6])[0],
            'corrupt': unpack('H',buf[-6:-4])[0],
@@ -296,7 +295,8 @@ def storage_stats(stats, keys):
     print 'keys: noname =', stats['noname'],
     print 'corrupt =',  stats['corrupt'],
     print 'duplicates =',  stats['duplicates'],
-    print 'deleted =', stats['deleted']
+    print 'deleted =', stats['deleted'],
+    print 'total =', stats['key count']
     size = stats['size']
     reclaimable = size - (64                                           # userdata
                           + len(''.join(keys.keys())) + (35*len(keys)) # name mapping records
