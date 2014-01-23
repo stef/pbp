@@ -3,7 +3,11 @@ import argparse, os, sys, datetime, binascii
 from utils import b85encode, lockmem, split_by_n
 from SecureString import clearmem
 import publickey, pysodium as nacl
-import pitchfork
+try:
+    import pitchfork
+    PITCHFORK=True
+except: # ignore missing pitchfork
+    PITCHFORK=False
 from pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
 from pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
 from pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
@@ -35,7 +39,7 @@ def main():
     group.add_argument('--dh-end',      '-De', dest='action', action='store_const', const='de',help="finalizes an ECDH key exchange")
     group.add_argument('--rand-stream', '-R',  dest='action', action='store_const', const='R',help="generate arbitrary random stream")
 
-    parser.add_argument('--pitchfork',  '-P',  dest='PITCHFORK', action='store_const', const='P',help="arms PITCHFORK", default=False)
+    if PITCHFORK: parser.add_argument('--pitchfork',  '-P',  dest='PITCHFORK', action='store_const', const='P',help="arms PITCHFORK", default=False)
     parser.add_argument('--signature',  '-z', help="sets the pitchfork sig to verify")
     parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
