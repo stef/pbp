@@ -63,7 +63,7 @@ def main():
 
     # list public keys
     elif opts.action=='l':
-        if opts.PITCHFORK:
+        if PITCHFORK:
             pitchfork.init()
             res = pitchfork.listkeys(opts.name)
             if(res):
@@ -85,7 +85,7 @@ def main():
 
     # encrypt
     elif opts.action=='c':
-        if opts.PITCHFORK:
+        if PITCHFORK:
             ensure_recipient_specified(opts)
             pitchfork.init()
             res=pitchfork.encrypt(opts.recipient[0],
@@ -105,7 +105,7 @@ def main():
 
     # decrypt
     elif opts.action=='d':
-        if opts.PITCHFORK:
+        if PITCHFORK:
             ensure_recipient_specified(opts)
             pitchfork.init()
             res=pitchfork.decrypt(opts.recipient[0],
@@ -121,7 +121,7 @@ def main():
 
     # sign
     elif opts.action=='s':
-        if opts.PITCHFORK:
+        if PITCHFORK:
             ensure_recipient_specified(opts)
             pitchfork.init()
             res=pitchfork.sign(opts.recipient[0],
@@ -139,7 +139,7 @@ def main():
 
     # verify
     elif opts.action=='v':
-        if opts.PITCHFORK:
+        if PITCHFORK:
             ensure_signature_specified(opts)
             ensure_recipient_specified(opts)
             pitchfork.init()
@@ -215,7 +215,7 @@ def main():
                             basedir=opts.basedir)
     # start ECDH
     elif opts.action=='d1':
-        if opts.PITCHFORK:
+        if PITCHFORK:
             ensure_recipient_specified(opts)
             pitchfork.init()
             params = pitchfork.start_ecdh(opts.recipient[0])
@@ -228,7 +228,7 @@ def main():
     # receive ECDH
     elif opts.action=='d2':
         ensure_dhparam_specified(opts)
-        if opts.PITCHFORK:
+        if PITCHFORK:
             ensure_recipient_specified(opts)
             pitchfork.init()
             params = pitchfork.resp_ecdh(opts.dh_param, opts.recipient[0])
@@ -243,7 +243,7 @@ def main():
     elif opts.action=='d3':
         ensure_dhparam_specified(opts)
         ensure_dhexp_specified(opts)
-        if opts.PITCHFORK:
+        if PITCHFORK:
             pitchfork.init()
             sec = pitchfork.end_ecdh(opts.dh_param, opts.dh_exp)
         else:
@@ -274,7 +274,7 @@ def main():
 
     elif opts.action=='R':
         ensure_size_good(opts)
-        if opts.PITCHFORK:
+        if PITCHFORK:
             pitchfork.init()
             pitchfork.rng(int(opts.size), opts.outfile)
         else:
