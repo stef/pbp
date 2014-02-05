@@ -14,9 +14,9 @@ scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6
 
 _prev_passphrase = ''
 
-def getkey(l, pwd='', empty=False, text=''):
+def getkey(size, pwd='', empty=False, text=''):
     # queries the user twice for a passphrase if neccessary, and
-    # returns a scrypted key of length l
+    # returns a scrypted key of length size
     # allows empty passphrases if empty == True
     # 'text' will be prepended to the password query
     # will not query for a password if pwd != ''
@@ -37,7 +37,7 @@ def getkey(l, pwd='', empty=False, text=''):
     #   clearmem(pwd2)
     if pwd.strip():
         _prev_passphrase = pwd
-        key = scrypt.hash(pwd, scrypt_salt)[:l]
+        key = scrypt.hash(pwd, scrypt_salt)[:size]
         #if clearpwd: clearmem(pwd)
         return key
 
@@ -78,7 +78,9 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
             k = None
             continue
         break
-    if cleark: clearmem(k)
+    if cleark:
+        clearmem(k)
+        k = None
     if res:
         return res
 
@@ -178,6 +180,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
             outfd.write(decrypt((nonce, buf), k = key))
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         clearmem(key)
+        key = None
         if 0 < len(nonce) < nacl.crypto_secretbox_NONCEBYTES:
             raise ValueError('decryption failed')
 
