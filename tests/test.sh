@@ -73,5 +73,4 @@ pbp -g -n tom -b ./test-pbp/other || exit
 echo import alice to toms keyring
 pbp -x -b ./test-pbp -S alice | pbp -X -b ./test-pbp/other
 echo encrypt to alice from tom, and try to decrypt it immediately
-echo "howdy" | pbp -c -r alice -S tom -b asdf/a | pbp -d -S alice -b pbp/test-pbp
-
+echo "howdy" | pbp -c -r alice -S tom -b ./test-pbp/other | pbp -d -S alice -b ./test-pbp
