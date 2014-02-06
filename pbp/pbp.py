@@ -4,6 +4,7 @@ import getpass, sys, struct
 from utils import b85encode, b85decode, lockmem, inputfd, outputfd
 from SecureString import clearmem
 import chaining, publickey, ecdh
+import os
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
@@ -148,6 +149,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         if not self:
             print >>sys.stderr, "Error: need to specify your own key using the --self param"
             raise ValueError
+        # todo change this to 2 bytes only - reduce signature.
         size = struct.unpack('>L',fd.read(4))[0]
         r = []
         for _ in xrange(size):
@@ -158,9 +160,9 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         me.clear()
         sender, key = me.keydecrypt(r)
         if not sender:
-        #    print >>sys.stderr, 'good key from', sender
-        #else:
             raise ValueError('decryption failed')
+        #else:
+        #    print >>sys.stderr, 'good key from', sender
     # sym
     elif _type == BLOCK_CIPHER:
         pwd = getpass.getpass('Passphrase for decrypting: ')
@@ -280,7 +282,8 @@ def keycheck_handler(name=None, basedir=None):
 def export_handler(self, basedir=None):
     # exports key self from basedir, outputs to stdout, key is ascii armored
     keys = publickey.Identity(self, basedir=basedir)
-    pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
+    dates='{:<32}{:<32}'.format(keys.created.isoformat(), keys.valid.isoformat())
+    pkt = keys.sign(keys.mp+keys.sp+keys.cp+dates+keys.name, master=True)
     keys.clear()
     return b85encode(pkt)
 
@@ -296,13 +299,15 @@ def import_handler(infile=None, basedir=None):
     keys = nacl.crypto_sign_open(pkt, mp)
     if not keys:
         return
-    name = keys[nacl.crypto_sign_PUBLICKEYBYTES*3:]
-    peer = publickey.Identity(name, basedir=basedir)
-    peer.mp = mp
-    peer.cp = keys[nacl.crypto_sign_PUBLICKEYBYTES:nacl.crypto_sign_PUBLICKEYBYTES*2]
-    peer.sp = keys[nacl.crypto_sign_PUBLICKEYBYTES*2:nacl.crypto_sign_PUBLICKEYBYTES*3]
+    name = keys[(nacl.crypto_sign_PUBLICKEYBYTES*3)+2*32:]
+    kfile = publickey.get_pk_filename(basedir, name)
+    if os.path.exists(kfile):
+        bkp = kfile+'.old'
+        print >>sys.stderr, "backing up existing key to %s" % bkp
+        os.rename(kfile,bkp)
+    with open(kfile, 'w') as fd:
+        fd.write(pkt)
     # TODO check if key exists, then ask for confirmation of pk overwrite
-    peer.save()
     return name
 
 def chaining_encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):

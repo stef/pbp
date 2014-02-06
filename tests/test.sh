@@ -65,3 +65,13 @@ pbp -Ds -S bob -b test-pbp -Dp 3 -n 'test-dh' -i /tmp/dh1 -o /tmp/dh2
 pbp -Ds -S carol -b test-pbp -Dp 3 -n 'test-dh' -i /tmp/dh2 -o /tmp/dh3
 pbp -De -S alice -b test-pbp -Dp 3 -n 'test-dh' -i /tmp/dh3 -o /tmp/dh4
 pbp -De -S bob -b test-pbp -Dp 3 -n 'test-dh' -i /tmp/dh4 -o /tmp/dh5
+
+echo testing import / export
+rm -rf ./test-pbp/other
+echo create tom with separate keyring
+pbp -g -n tom -b ./test-pbp/other || exit
+echo import alice to toms keyring
+pbp -x -b ./test-pbp -S alice | pbp -X -b ./test-pbp/other
+echo encrypt to alice from tom, and try to decrypt it immediately
+echo "howdy" | pbp -c -r alice -S tom -b asdf/a | pbp -d -S alice -b pbp/test-pbp
+
