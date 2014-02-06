@@ -1,6 +1,6 @@
 pbp
 
-v0.2 - experimental
+v0.2.1 - experimental
 
 PBP[0] is a simple python wrapper and a command line interface around
 libsodium, to provide basic functionality resembling PGP. It uses
