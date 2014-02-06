@@ -29,7 +29,7 @@ class Identity(object):
             os.path.expanduser(basedir or pbp.defaultbase))
 
         if create:
-            if not os.path.exists(self.basedir):
+            if not os.path.exists(get_pk_dir(self.basedir)) or not os.path.exists(get_sk_dir(self.basedir)):
                 for d in (get_pk_dir(self.basedir), get_sk_dir(self.basedir)):
                     os.makedirs(d, stat.S_IREAD|stat.S_IWRITE|stat.S_IEXEC)
             self.create()
