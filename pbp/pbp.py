@@ -235,7 +235,7 @@ def verify_handler(infile=None, outfile=None, basedir=None):
     fd = inputfd(infile)
     outfd = outputfd(outfile)
 
-    sender = buffered_verify(fd,outfd,basedir)
+    sender = publickey.buffered_verify(fd,outfd,basedir)
 
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout: outfd.close()

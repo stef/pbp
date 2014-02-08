@@ -241,7 +241,7 @@ def buffered_verify(infd, outfd, basedir, self = None):
         sender, hashsum1 = self.verify(sig+hashsum) or ([], '')
     else:
         # find corresponding key
-        sender, hashsum1 = publickey.verify(sig+hashsum, basedir=basedir) or ([], '')
+        sender, hashsum1 = verify(sig+hashsum, basedir=basedir) or ([], '')
 
     if sender and hashsum == hashsum1:
         return sender
