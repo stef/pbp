@@ -9,14 +9,16 @@ def split_by_n( seq, n ):
         yield seq[:n]
         seq = seq[n:]
 
-# pure python base85 codec
-# Copyright (C) 2008 Brendan Cully <brendan at kublai.com>
+# pure python z85 codec - name is misleading it is not ascii85, but a variant seen here:
+# http://rfc.zeromq.org/spec:32
+# Copyright (C) 2008 Brendan Cully <brendan at kublai.com>,
+#               2014 tlinden
+#               2014 stf s@ctrlc.hu
 # This software may be used and distributed according to the terms of
 # the GNU General Public License, incorporated herein by reference.
 
+_b85chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/*?&<>()[]{}@%$#"
 
-_b85chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
-            "abcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~"
 _b85dec = {}
 
 def _mkb85dec():
