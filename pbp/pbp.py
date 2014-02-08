@@ -279,7 +279,7 @@ def export_handler(self, basedir=None):
     keys = publickey.Identity(self, basedir=basedir)
     pkt = keys.sign(keys.mp+keys.cp+keys.sp+keys.name, master=True)
     keys.clear()
-    return b85encode(pkt)
+    return b85encode(pkt, True)
 
 def import_handler(infile=None, basedir=None):
     # imports ascii armored key from infile or stdin to basedir
