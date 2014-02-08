@@ -25,7 +25,7 @@ setup(
           ],
        },
     long_description=read('readme.txt'),
-    install_requires = ("cffi", "scrypt", "pysodium", "SecureString"),
+    install_requires = ("scrypt", "pysodium", "SecureString"),
     classifiers = ["Development Status :: 4 - Beta",
                    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
                    "Topic :: Security :: Cryptography",
