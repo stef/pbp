@@ -89,7 +89,14 @@ def b85decode(text):
     if cl:
         out = out[:-(5 - cl)]
 
-    return out
+    # Unpad previously zero padded input, if any
+    unpadlen = len(out)
+    for i in reversed(range(unpadlen)):
+        if out[i] != '\0' and i < unpadlen:
+            unpadlen = i + 1
+            break
+
+    return out[:unpadlen]
 
 _MCL_CURRENT = 1
 _MCL_FUTURE = 2
