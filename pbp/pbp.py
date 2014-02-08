@@ -111,7 +111,6 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         outfd.write(struct.pack(">L", len(peerkeys)))
         for rnonce, ct in peerkeys:
             outfd.write(rnonce)
-            outfd.write(struct.pack("B", len(ct)))
             outfd.write(ct)
     else:
         # let's do symmetric crypto
@@ -154,7 +153,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
         r = []
         for _ in xrange(size):
             rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
-            ct = fd.read(struct.unpack('B', fd.read(1))[0])
+            ct = fd.read(nacl.crypto_secretbox_KEYBYTES+16) # for mac
             r.append((rnonce,ct))
         me = publickey.Identity(self, basedir=basedir)
         me.clear()
