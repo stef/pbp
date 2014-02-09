@@ -284,7 +284,7 @@ def export_handler(self, basedir=None):
     dates='{:<32}{:<32}'.format(keys.created.isoformat(), keys.valid.isoformat())
     pkt = keys.sign(keys.mp+keys.sp+keys.cp+dates+keys.name, master=True)
     keys.clear()
-    return b85encode(pkt)
+    return b85encode(pkt, True)
 
 def import_handler(infile=None, basedir=None):
     # imports ascii armored key from infile or stdin to basedir
