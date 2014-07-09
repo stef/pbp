@@ -290,7 +290,7 @@ def load_key(key):
     if not key:
         return None
     if os.path.exists(key):
-        with open(opts.key,'r') as fd:
+        with open(key,'r') as fd:
             key = fd.read()
     return key
 
