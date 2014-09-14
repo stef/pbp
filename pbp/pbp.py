@@ -13,31 +13,22 @@ BLOCK_SIZE = 32*1024
 defaultbase='~/.pbp'
 scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
 
-_prev_passphrase = ''
-
 def getkey(size, pwd='', empty=False, text=''):
     # queries the user twice for a passphrase if neccessary, and
     # returns a scrypted key of length size
     # allows empty passphrases if empty == True
     # 'text' will be prepended to the password query
     # will not query for a password if pwd != ''
-    global _prev_passphrase
     #clearpwd = (pwd.strip()=='')
     pwd2 = not pwd
     if not pwd:
-        if _prev_passphrase:
-            print >>sys.stderr, "press enter to reuse the previous passphrase"
         while pwd != pwd2 or (not empty and not pwd.strip()):
             pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
             if pwd.strip():
                 pwd2 = getpass.getpass('2/2 %s Repeat passphrase: ' % text)
-            elif _prev_passphrase is not None:
-                pwd = _prev_passphrase
-                break
     #if isinstance(pwd2, str):
     #   clearmem(pwd2)
     if pwd.strip():
-        _prev_passphrase = pwd
         key = scrypt.hash(pwd, scrypt_salt)[:size]
         #if clearpwd: clearmem(pwd)
         return key
