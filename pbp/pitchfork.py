@@ -23,7 +23,7 @@ if DEBUG:
     import time
 
 # PITCHFORK Consts
-STORAGE_ID_LEN=16
+EKID_SIZE=32
 PEER_NAME_MAX=32
 
 USB_CRYPTO_EP_CTRL_IN = 0x01
@@ -58,10 +58,10 @@ def encrypt(peer, infile=None, outfile=None):
 
     eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_ENCRYPT+peer)
     # needs to return keyid read it here
-    keyid = ''.join([chr(x) for x in eps[USB_CRYPTO_EP_CTRL_OUT].read(STORAGE_ID_LEN)])
+    keyid = ''.join([chr(x) for x in eps[USB_CRYPTO_EP_CTRL_OUT].read(EKID_SIZE)])
     if(keyid.startswith('err: ')):
         raise ValueError(keyid)
-    if len(keyid)<STORAGE_ID_LEN:
+    if len(keyid)<EKID_SIZE:
         raise ValueError
     pkt = fd.read(32768)
     #if len(pkt)>0:
@@ -83,7 +83,7 @@ def encrypt(peer, infile=None, outfile=None):
 
 def decrypt(keyid, infile=None, outfile=None):
     keyid=b85decode(keyid)
-    if(len(keyid)!=STORAGE_ID_LEN):
+    if(len(keyid)!=EKID_SIZE):
         raise ValueError
 
     fd = inputfd(infile)
@@ -127,10 +127,10 @@ def sign(peer, infile=None, outfile=None):
 
     eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_SIGN+peer)
     # needs to return keyid read it here
-    keyid = ''.join([chr(x) for x in eps[USB_CRYPTO_EP_CTRL_OUT].read(STORAGE_ID_LEN)])
+    keyid = ''.join([chr(x) for x in eps[USB_CRYPTO_EP_CTRL_OUT].read(EKID_SIZE)])
     if(keyid.startswith('err: ')):
        return
-    if len(keyid)<STORAGE_ID_LEN:
+    if len(keyid)<EKID_SIZE:
         return
     pkt = fd.read(32768)
     #if len(pkt)>0:
@@ -153,7 +153,7 @@ def sign(peer, infile=None, outfile=None):
 def verify(sign, keyid, infile=None, outfile=None):
     keyid=b85decode(keyid)
     sign=b85decode(sign)
-    if(len(keyid)!=STORAGE_ID_LEN or len(sign)!= nacl.crypto_generichash_BYTES):
+    if(len(keyid)!=EKID_SIZE or len(sign)!= nacl.crypto_generichash_BYTES):
         raise ValueError
 
     fd = inputfd(infile)
