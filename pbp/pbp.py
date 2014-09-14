@@ -39,11 +39,14 @@ def encrypt(msg, pwd=None, k=None):
     # pwd which is queried from the user, if also not specified.
     # returns a (nonce, ciphertext) tuple
     nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
+    clearpwd = (pwd is None)
     cleark = (k is None)
     if not k:
         k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
     ciphertext = nacl.crypto_secretbox(msg, nonce, k)
-    if cleark: clearmem(k)
+    if cleark:
+        clearmem(k)
+        k = None
     return (nonce, ciphertext)
 
 def decrypt(pkt, pwd=None, k=None, retries=3):
@@ -60,8 +63,9 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
             if not pwd:
                 pwd = getpass.getpass('\nPassphrase for decrypting: ')
             k =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
-            if clearpwd: clearmem(pwd)
-            pwd = None
+            if clearpwd:
+                clearmem(pwd)
+                pwd = None
         try:
             res = nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
         except ValueError:
