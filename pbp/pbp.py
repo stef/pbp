@@ -98,14 +98,14 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         # let's do public key encryption
         key = nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
         me = publickey.Identity(self, basedir=basedir)
-        peerkeys = me.keyencrypt(key, recipients=[publickey.Identity(x, basedir=basedir)
-                                                  for x
-                                                  in recipient])
+        size = struct.pack('>H',len(recipient))
+        # write out encrypted message key (nonce, c(key+recplen)) for each recipient
+        for r in recipient:
+            r = publickey.Identity(r, basedir=basedir, publicOnly=True)
+            nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
+            outfd.write(nonce)
+            outfd.write(nacl.crypto_box(key+size, nonce, r.cp, me.cs))
         me.clear()
-        outfd.write(struct.pack(">H", len(peerkeys)))
-        for rnonce, ct in peerkeys:
-            outfd.write(rnonce)
-            outfd.write(ct)
     else:
         # let's do symmetric crypto
         key = getkey(nacl.crypto_secretbox_KEYBYTES)
@@ -121,7 +121,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout and type(outfd) == file: outfd.close()
 
-def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
+def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipients = 20, basedir=None):
     # provides a high level function to do decryption of files
     # infile specifies the filename of the input file,
     #        if '-' or not specified it uses stdin
@@ -137,15 +137,29 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     key = None
     # asym
     if self:
-        size = struct.unpack('>H',fd.read(2))[0]
-        r = []
-        for _ in xrange(size):
-            rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
-            ct = fd.read(nacl.crypto_secretbox_KEYBYTES+nacl.crypto_secretbox_MACBYTES)
-            r.append((rnonce,ct))
         me = publickey.Identity(self, basedir=basedir)
+        if peer:
+            peer = publickey.Identity(peer, basedir=basedir, publicOnly=True)
+        sender = None
+        size = None
+        i=0
+        while i < (max_recipients if not size else size):
+            i+=1
+            rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
+            ct = fd.read(nacl.crypto_secretbox_KEYBYTES+2+nacl.crypto_secretbox_MACBYTES)
+            if sender: continue
+            for keys in ([peer] if peer else publickey.get_public_keys(basedir=basedir)):
+                try:
+                    tmp = nacl.crypto_box_open(ct, rnonce, keys.cp, me.cs)
+                except ValueError:
+                    continue
+
+                key = tmp[:nacl.crypto_secretbox_KEYBYTES]
+                size = struct.unpack('>H',tmp[nacl.crypto_secretbox_KEYBYTES:])[0]
+                sender = keys.name
+                break
+
         me.clear()
-        sender, key = me.keydecrypt(r)
         if not sender:
             raise ValueError('decryption failed')
     # sym

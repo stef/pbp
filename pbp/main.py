@@ -43,6 +43,8 @@ def main():
     parser.add_argument('--signature',  '-z', help="sets the pitchfork sig to verify")
     parser.add_argument('--recipient',  '-r', action='append', help="designates a recipient for public key encryption")
     parser.add_argument('--name',       '-n', help="sets the name for a new key")
+    parser.add_argument('--max-recipients',   help="set the number of recipients to check when decrypting", default=20)
+    parser.add_argument('--sender',           help="set the key of the sender")
     parser.add_argument('--basedir',    '-b', '--base-dir', help="set the base directory for all key storage needs", default=defaultbase)
     parser.add_argument('--self',       '-S', help="sets your own key")
     parser.add_argument('--key',        '-k', help="some password or secret")
@@ -112,12 +114,18 @@ def main():
                                   infile=opts.infile,
                                   outfile=opts.outfile)
         else:
-            sender = decrypt_handler(infile=opts.infile,
-                            outfile=opts.outfile,
-                            self=opts.self,
-                            basedir=opts.basedir)
-            if sender:
-                print >>sys.stderr, 'good message from', sender
+            try:
+                sender = decrypt_handler(infile=opts.infile,
+                                         outfile=opts.outfile,
+                                         self=opts.self,
+                                         max_recipients=int(opts.max_recipients),
+                                         peer=opts.sender,
+                                         basedir=opts.basedir)
+            except ValueError, e:
+                print e
+                sys.exit(1)
+            else:
+                print >>sys.stderr, '[pbp] good message from', sender
 
     # sign
     elif opts.action=='s':
@@ -152,9 +160,9 @@ def main():
                                  outfile=opts.outfile,
                                  basedir=opts.basedir)
         if res:
-            print >>sys.stderr, "good message from", res
+            print >>sys.stderr, "[pbp] good message from", res
         else:
-            print >>sys.stderr, 'VERIFICATION FAILED'
+            print >>sys.stderr, '[pbp] VERIFICATION FAILED'
 
     # key sign
     elif opts.action=='m':
@@ -163,8 +171,8 @@ def main():
         sig = keysign_handler(name=opts.name,
                               self=opts.self,
                               basedir=opts.basedir)
-        if sig: print "key signed in", sig
-        else: print >>sys.stderr, 'signature failed'
+        if sig: print "[pbp] key signed in", sig
+        else: print >>sys.stderr, '[pbp] SIGNATURE FAILED'
 
     # lists signatures owners on public keys
     elif opts.action=='C':
@@ -172,8 +180,8 @@ def main():
         sigs = keycheck_handler(name=opts.name,
                          basedir=opts.basedir)
         if sigs:
-            print >>sys.stderr, 'good signatures on', opts.name, 'from', ', '.join(sigs)
-        else: print >>sys.stderr, 'no good sigs found'
+            print >>sys.stderr, '[pbp] good signatures on', opts.name, 'from', ', '.join(sigs)
+        else: print >>sys.stderr, '[pbp] NO GOOD SIGS FOUND'
 
     # export public key
     elif opts.action=='x':
@@ -186,9 +194,9 @@ def main():
         n = import_handler(infile=opts.infile,
                            basedir=opts.basedir)
         if n:
-            print 'Success: imported public keys for', n
+            print '[pbp] Success: imported public keys for', n
         else:
-            print 'import failed'
+            print '[pbp] IMPORT FAILED'
 
     # forward encrypt
     elif opts.action=='e':
@@ -222,8 +230,8 @@ def main():
         else:
             params = dh1_handler()
         if params:
-            print "secret exponent", b85encode(params[0])
-            print "public component", b85encode(params[1])
+            print "[pbp] secret exponent", b85encode(params[0])
+            print "[pbp] public component", b85encode(params[1])
             clearmem(params[0])
     # receive ECDH
     elif opts.action=='d2':
@@ -235,8 +243,8 @@ def main():
         else:
             params = dh2_handler(binascii.unhexlify(opts.dh_param))
         if params:
-            print "shared secret", b85encode(params[1])
-            print "public component", b85encode(params[0])
+            print "[pbp] shared secret", b85encode(params[1])
+            print "[pbp] public component", b85encode(params[0])
             clearmem(params[0])
             clearmem(params[1])
     # finish ECDH
@@ -249,7 +257,7 @@ def main():
         else:
             sec = dh3_handler(binascii.unhexlify(opts.dh_param), binascii.unhexlify(opts.dh_exp))
         if sec:
-            print "shared secret", b85encode(sec)
+            print "[pbp] shared secret", b85encode(sec)
             clearmem(sec)
     # start MPECDH
     elif opts.action=='ds':
@@ -258,7 +266,7 @@ def main():
         ensure_name_specified(opts)
         sec = mpecdh_start_handler(opts.name, opts.dh_peers, opts.self, opts.infile, opts.outfile, opts.basedir)
         if sec:
-            print >>sys.stderr, "pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6))
+            print >>sys.stderr, "[pbp] pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6))
             clearmem(sec)
             sec = None
 
@@ -268,7 +276,7 @@ def main():
         ensure_name_specified(opts)
         sec = mpecdh_end_handler(opts.name, opts.self, opts.infile, opts.outfile, opts.basedir)
         if sec:
-            print >>sys.stderr, "pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6))
+            print >>sys.stderr, "[pbp] pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6))
             clearmem(sec)
             sec = None
 

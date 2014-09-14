@@ -19,6 +19,18 @@ pbp -c -S alice -r bob -i ./test-pbp/howdy.txt -b ./test-pbp || exit
 echo decrypt
 pbp -d -S bob -i ./test-pbp/howdy.txt.pbp -b ./test-pbp || exit
 
+echo "too many recipient pk crypto test (should fail)"
+echo "howdy" | pbp -c -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r alice -S bob -b ./test-pbp/ | pbp -d -S alice -b ./test-pbp && exit
+
+echo "max_recipient recipient pk crypto test"
+echo "howdy" | pbp -c -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r alice -S bob -b ./test-pbp/ | pbp -d -S alice -b ./test-pbp || exit
+
+echo "many recipient pk with max-recipients and correct sender"
+echo "howdy" | pbp -c -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r alice -S bob -b ./test-pbp/ | pbp -d --sender bob --max-recipients 100 -S alice -b ./test-pbp
+
+echo "many recipient pk with max-recipients and wrong sender"
+echo "howdy" | pbp -c -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r carol -r alice -S bob -b ./test-pbp/ | pbp -d --sender alice --max-recipients 100 -S alice -b ./test-pbp && exit
+
 echo secret key crypto test
 pbp -c -i ./test-pbp/howdy.txt || exit
 echo decrypt
