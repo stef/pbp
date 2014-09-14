@@ -12,7 +12,7 @@ from pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
 from pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
 from pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
 from pbp import dh1_handler, dh2_handler, dh3_handler, mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
-from pbp import hash_handler, _prev_passphrase
+from pbp import hash_handler
 
 def main():
     # main command line handler for pbp
@@ -365,4 +365,3 @@ def die(msg):
 if __name__ == '__main__':
     lockmem()
     main()
-    clearmem(_prev_passphrase)
