@@ -1,14 +1,26 @@
+Encrypted/signed messages
+
 secret key crypto output is always: nonce|cipher(key, nonce, msg)
+
 signed output is always msg|sig[64]
+
+public key encrypted files have the following structure:
+  (recipients...)|c(packet key, nonce, msg)
+where recipients is a concatenated list of
+  random_nonce|c(recipient crypto pk, random_nonce, packet key | (len(recipients)[2]))
+
+Keys
 
 .mk - secret master key
 nonce|cipher(scrypt(passwd), nonce, master secret)
 
 .sk - secret subkeys
 nonce|cipher(scrypt(passwd), nonce, cipher secret|signing secret)
+# fixme should be two seperate encryptions, not concatenated
 
 .pk - public keys
 sign(mk, master public | cipher public | sign public | created[32] | valid[32] | name... )
+where created and valid are dates in ISO format.
 
 pfs keys are for each peer one file like this:
 nonce|c(mk, nonce, mykey|mynextkey|peerkey|peernextkey)
@@ -17,8 +29,4 @@ nonce|c(mk, nonce, mykey|mynextkey|peerkey|peernextkey)
 calculate sign(mk,pk) -> sig|pk
 store sig appending to the .sig file.
 
-public key encrypted files have the following structure:
-  len(recipients)[2]|[(recipients...)|c(packet key, nonce, msg)
-where recipients is a concatenated list of
-  random_nonce|c(recipient crypto pk, random_nonce, packet key)
-
+* integers in brackets indicate length in bytes of field
