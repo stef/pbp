@@ -92,7 +92,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     # if both self and recipient is specified pk crypto is used, otherwise symmetric
     # this function also handles buffering.
     fd = inputfd(infile)
-    outfd = outputfd(outfile or (infile+'.pbp' if infile else '-'))
+    outfd = outputfd(outfile or (infile+'.pbp' if infile not in [None,'-'] else '-'))
 
     if recipient and self:
         # let's do public key encryption
