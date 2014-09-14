@@ -102,15 +102,13 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
                                                   for x
                                                   in recipient])
         me.clear()
-        outfd.write(struct.pack("B", ASYM_CIPHER))
-        outfd.write(struct.pack(">L", len(peerkeys)))
+        outfd.write(struct.pack(">H", len(peerkeys)))
         for rnonce, ct in peerkeys:
             outfd.write(rnonce)
             outfd.write(ct)
     else:
         # let's do symmetric crypto
         key = getkey(nacl.crypto_secretbox_KEYBYTES)
-        outfd.write(struct.pack("B", BLOCK_CIPHER))
 
     buf = fd.read(BLOCK_SIZE)
     while buf:
@@ -137,39 +135,30 @@ def decrypt_handler(infile=None, outfile=None, self=None, basedir=None):
     outfd = outputfd(outfile)
 
     key = None
-    _type=struct.unpack('B',fd.read(1))[0]
     # asym
-    if _type == ASYM_CIPHER:
-        if not self:
-            print >>sys.stderr, "Error: need to specify your own key using the --self param"
-            raise ValueError
-        # todo change this to 2 bytes only - reduce signature.
-        size = struct.unpack('>L',fd.read(4))[0]
+    if self:
+        size = struct.unpack('>H',fd.read(2))[0]
         r = []
         for _ in xrange(size):
             rnonce = fd.read(nacl.crypto_box_NONCEBYTES)
-            ct = fd.read(nacl.crypto_secretbox_KEYBYTES+16) # for mac
+            ct = fd.read(nacl.crypto_secretbox_KEYBYTES+nacl.crypto_secretbox_MACBYTES)
             r.append((rnonce,ct))
         me = publickey.Identity(self, basedir=basedir)
         me.clear()
         sender, key = me.keydecrypt(r)
         if not sender:
             raise ValueError('decryption failed')
-        #else:
-        #    print >>sys.stderr, 'good key from', sender
     # sym
-    elif _type == BLOCK_CIPHER:
+    else:
         pwd = getpass.getpass('Passphrase for decrypting: ')
         key =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
         sender = None
         clearmem(pwd)
-    else:
-        raise ValueError('decryption failed')
 
     if key:
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         while len(nonce) == nacl.crypto_secretbox_NONCEBYTES:
-            buf = fd.read(BLOCK_SIZE + (nacl.crypto_secretbox_ZEROBYTES - nacl.crypto_secretbox_BOXZEROBYTES))
+            buf = fd.read(BLOCK_SIZE + nacl.crypto_secretbox_MACBYTES)
             if not buf:
                 raise ValueError('decryption failed')
                 break
