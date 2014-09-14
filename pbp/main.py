@@ -75,13 +75,13 @@ def main():
         else:
             for i in publickey.get_public_keys(opts.basedir):
                 print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
-                       else 'invalid'), i.keyid(), i.name
+                       else 'INVALID'), i.keyid(), i.name
 
     # list secret keys
     elif opts.action=='L':
         for i in publickey.get_secret_keys(opts.basedir):
             print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
-                   else 'invalid'), i.keyid(), i.name
+                   else 'INVALID'), i.keyid(), i.name
 
     # encrypt
     elif opts.action=='c':
@@ -154,7 +154,7 @@ def main():
         if res:
             print >>sys.stderr, "good message from", res
         else:
-            print >>sys.stderr, 'verification failed'
+            print >>sys.stderr, 'VERIFICATION FAILED'
 
     # key sign
     elif opts.action=='m':
