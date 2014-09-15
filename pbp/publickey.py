@@ -104,14 +104,14 @@ class Identity(object):
                 if type == 'ss': self.ss = tmp[:nacl.crypto_sign_SECRETKEYBYTES]
                 if type == 'cs': self.cs = tmp[nacl.crypto_sign_SECRETKEYBYTES:]
             else:
-                raise ValueError("missing key")
+                raise ValueError("missing key %s" % self.name)
 
         elif type == 'ms':
             tmp = get_sk_filename(self.basedir, self.name, ext='mk')
             if os.path.exists(tmp):
                 self.ms = self.decrypt_with_user_pw(tmp, 'master key')
             else:
-                raise ValueError("missing key")
+                raise ValueError("missing key %s" % self.name)
 
     def decrypt_with_user_pw(self, filename, pw_for):
         with file(filename) as fd:
