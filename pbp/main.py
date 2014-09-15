@@ -58,6 +58,12 @@ def main():
     opts=parser.parse_args()
 
     opts.basedir=os.path.expandvars( os.path.expanduser(opts.basedir))
+
+    if os.path.exists(opts.basedir):
+        mode = os.stat(opts.basedir).st_mode & 0777
+        if mode not in [0700, 0600]:
+            print >>sys.stderr, '[pbp] ABORT: unsafe permissions %s on basedir %s' % (oct(mode), opts.basedir)
+
     # Generate key
     if opts.action=='g':
         ensure_name_specified(opts)
