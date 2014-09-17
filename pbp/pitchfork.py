@@ -9,7 +9,7 @@ import sys
 import usb.core
 import usb.util
 import pysodium as nacl
-from utils import split_by_n, inputfd, outputfd, b85encode, b85decode
+from utils import inputfd, outputfd, b85encode, b85decode
 from struct import unpack
 
 idVendor=0x0483
@@ -20,7 +20,6 @@ if DEBUG:
     import os
     os.environ['PYUSB_DEBUG_LEVEL'] = 'warning' # 'debug'
     os.environ['PYUSB_DEBUG'] = 'warning' # 'debug'
-    import time
 
 # PITCHFORK Consts
 EKID_SIZE=32
@@ -184,7 +183,6 @@ def verify(sign, keyid, infile=None, outfile=None):
     return res[0]
 
 def start_ecdh(name):
-    if DEBUG: start = time.time()
     flush(USB_CRYPTO_EP_DATA_OUT)
     eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_ECDH_START+name)
     resp=eps[USB_CRYPTO_EP_DATA_OUT].read(64)
@@ -194,7 +192,6 @@ def start_ecdh(name):
 
 def resp_ecdh(pub, name):
     pub=b85decode(pub)
-    if DEBUG: start = time.time()
     flush(USB_CRYPTO_EP_DATA_OUT)
     eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_ECDH_RESPOND+pub+name)
     resp=eps[USB_CRYPTO_EP_DATA_OUT].read(64)
@@ -205,7 +202,6 @@ def resp_ecdh(pub, name):
 def end_ecdh(pub, keyid):
     pub=b85decode(pub)
     keyid=b85decode(keyid)
-    if DEBUG: start = time.time()
     flush(USB_CRYPTO_EP_DATA_OUT)
     eps[USB_CRYPTO_EP_CTRL_IN].write(USB_CRYPTO_CMD_ECDH_END+pub+keyid)
     resp=eps[USB_CRYPTO_EP_DATA_OUT].read(64)
