@@ -47,6 +47,9 @@ def encrypt(msg, pwd=None, k=None):
     if cleark:
         clearmem(k)
         k = None
+    if clearpwd:
+        clearmem(pwd)
+        pwd = None
     return (nonce, ciphertext)
 
 def decrypt(pkt, pwd=None, k=None, retries=3):
@@ -416,4 +419,3 @@ if __name__ == '__main__':
     from main import main
     lockmem()
     main()
-    clearmem(_prev_passphrase)
