@@ -131,7 +131,8 @@ def main():
                 print e
                 sys.exit(1)
             else:
-                print >>sys.stderr, '[pbp] good message from', sender
+                if sender:
+                    print >>sys.stderr, '[pbp] good message from', sender
 
     # sign
     elif opts.action=='s':
