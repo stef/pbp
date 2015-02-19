@@ -28,7 +28,7 @@ def main():
     group.add_argument('--list',        '-l',  dest='action', action='store_const', const='l',help="lists public keys")
     group.add_argument('--list-secret', '-L',  dest='action', action='store_const', const='L',help="Lists secret keys")
     group.add_argument('--export-key',  '-x',  dest='action', action='store_const', const='x',help="export public key")
-    group.add_argument('--import-key',  '-i',  dest='action', action='store_const', const='i',help="import public key")
+    group.add_argument('--import-key',  '-I',  dest='action', action='store_const', const='i',help="import public key")
     group.add_argument('--check-sigs',  '-C',  dest='action', action='store_const', const='C',help="lists all known sigs on a public key")
     group.add_argument('--fcrypt',      '-e',  dest='action', action='store_const', const='e',help="encrypts a message using PFS to a peer")
     group.add_argument('--fdecrypt',    '-E',  dest='action', action='store_const', const='E',help="decrypts a message using PFS to a peer")

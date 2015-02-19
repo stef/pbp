@@ -1,6 +1,4 @@
-#/usr/bin/env python2
-import os
-from setuptools import setup
+#/usr/bin/env python2 import os from setuptools import setup
 
 # Utility function to read the README file.
 # Used for the long_description.  It's nice, because now 1) we have a top level
@@ -11,7 +9,7 @@ def read(fname):
 
 setup(
     name = "pbp",
-    version = "0.3.0",
+    version = "0.3.1",
     author = "Stefan Marsiske",
     author_email = "s@ctrlc.hu",
     description = ("simple crypto tool"),
