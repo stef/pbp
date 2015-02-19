@@ -9,7 +9,7 @@ def read(fname):
 
 setup(
     name = "pbp",
-    version = "0.2.2",
+    version = "0.3.0",
     author = "Stefan Marsiske",
     author_email = "s@ctrlc.hu",
     description = ("simple crypto tool"),
