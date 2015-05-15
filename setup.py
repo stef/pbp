@@ -24,7 +24,7 @@ setup(
           'pbp = pbp.main:main',
           ],
        },
-    long_description=read('readme.txt'),
+    long_description=read('readme.md'),
     install_requires = ("scrypt", "pysodium", "SecureString"),
     classifiers = ["Development Status :: 4 - Beta",
                    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
