@@ -73,11 +73,12 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
             res = nacl.crypto_secretbox_open(pkt[1], pkt[0], k)
         except ValueError:
             cnt += 1
-            if cleark: clearmem(k)
-            k = None
+            if cleark:
+                clearmem(k)
+                k = None
             continue
         break
-    if cleark:
+    if cleark and k:
         clearmem(k)
         k = None
     if res:
