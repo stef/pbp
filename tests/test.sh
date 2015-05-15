@@ -83,7 +83,7 @@ rm -rf ./test-pbp/other
 echo create tom with separate keyring
 pbp -g -n tom -b ./test-pbp/other || exit
 echo import alice to toms keyring, and vice versa
-pbp -x -b ./test-pbp -S alice | pbp -X -b ./test-pbp/other
-pbp -x -b ./test-pbp/other -S tom | pbp -X -b ./test-pbp
+pbp -x -b ./test-pbp -S alice | pbp -I -b ./test-pbp/other
+pbp -x -b ./test-pbp/other -S tom | pbp -I -b ./test-pbp
 echo encrypt to alice from tom, and try to decrypt it immediately
 echo "howdy" | pbp -c -r alice -S tom -b ./test-pbp/other | pbp -d -S alice -b ./test-pbp
