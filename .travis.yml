@@ -6,8 +6,8 @@ python:
 install:
  - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ vivid universe multiverse"
  - sudo apt-get update -qq
- - sudo apt-get install -y libsodium13
- - python setup.py install --always-unzip
+ - sudo apt-get install -y libsodium13 python-setuptools
+ - python setup.py develop --always-unzip
 
 script:
  - python -m unittest discover --start-directory tests
