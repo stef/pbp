@@ -163,3 +163,5 @@ you can add the following to your .vimrc
 
 [0] also it's very funny to say pbp with a mouth full of dry cookies.
 don't try this in company!
+
+[![Build Status](https://travis-ci.org/stef/pbp.svg?branch=master)](https://travis-ci.org/stef/pbp)
