@@ -42,38 +42,18 @@ class TestPBP(unittest.TestCase):
         # self.assertEquals(skeys, [i]) doesn't it match:
         # because identity loads keys dynamicly
 
-    #def test_encrypt_sym_stream_pwprompt_fail(self):
-    #    encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
-    #    decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
-    #    self.assertNotEquals(decrypted, MESSAGE)
-
     def test_encrypt_sym_pwprompt_fail(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
         self.assertTrue(pbp.decrypt(encrypted, pwd='asdf') is None)
-
-    #def test_encrypt_sym_stream_fail(self):
-    #    encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW, stream=True)
-    #    decrypted = pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
-    #    self.assertNotEquals(decrypted, MESSAGE)
 
     def test_encrypt_sym_fail(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
         self.assertTrue(pbp.decrypt(encrypted, pwd=PASSWORD) is None)
 
-    #def test_encrypt_sym_stream_pwprompt(self):
-    #    encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD, stream=True)
-    #    decrypted = pbp.decrypt(encrypted, basedir=self.pbp_path)
-    #    self.assertEquals(decrypted, MESSAGE)
-
     def test_encrypt_sym_pwprompt(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
         decrypted = pbp.decrypt(encrypted)
         self.assertEquals(decrypted, MESSAGE)
-
-    #def test_encrypt_sym_stream(self):
-    #    encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD, stream=True)
-    #    decrypted = pbp.decrypt(encrypted, pwd=PASSWORD, basedir=self.pbp_path)
-    #    self.assertEquals(decrypted, MESSAGE)
 
     def test_encrypt_sym(self):
         encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
