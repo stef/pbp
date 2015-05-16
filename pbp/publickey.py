@@ -196,7 +196,7 @@ class Identity(object):
 
         # sign hashsum
         sig = self.sign(hashsum)[:nacl.crypto_sign_BYTES]
-        print 'clearing'
+        #print 'clearing'
         #self.clear()
         if armor:
             sig = "%s%s" % (SIGPREFIX, b85encode(sig))
