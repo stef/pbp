@@ -33,8 +33,8 @@ class ChainingContext(object):
         self.in_k     = ('\0' * nacl.crypto_secretbox_KEYBYTES)
         self.in_prev  = ('\0' * nacl.crypto_secretbox_KEYBYTES)
         self.peer_pub = ('\0' * nacl.crypto_scalarmult_curve25519_BYTES)
-        self.me_id    = None
-        self.peer_id  = None
+        self.me_id = publickey.Identity(self.me, basedir=self.basedir)
+        self.peer_id = publickey.Identity(self.peer, basedir=self.basedir)
 
     def __repr__(self):
         return "<ChaingingCtx %s:%s>" % (self.me, self.peer)
@@ -89,10 +89,6 @@ class ChainingContext(object):
         if self.out_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             # encrypt using public key
             nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
-            if not self.peer_id:
-                self.peer_id = publickey.Identity(self.peer, basedir=self.basedir)
-            if not self.me_id:
-                self.me_id = publickey.Identity(self.me, basedir=self.basedir)
             cipher= nacl.crypto_box(plain, nonce, self.peer_id.cp, self.me_id.cs)
         else:
             # encrypt using chaining mode
@@ -121,6 +117,11 @@ class ChainingContext(object):
             # only for the very first packet necessary
             # we explicitly need to generate e_out
             self.e_out = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
+        #else: # axolotlize
+        #    print 'axolotl!'
+        #    self.out_k = nacl.crypto_generichash(self.out_k,
+        #                                         nacl.crypto_scalarmult_curve25519(self.me_id.cs, self.peer_id.cp),
+        #                                         nacl.crypto_scalarmult_curve25519_BYTES)
 
         # compose packet
         dh1 = nacl.crypto_scalarmult_curve25519_base(self.e_out)
@@ -135,10 +136,6 @@ class ChainingContext(object):
     def decrypt(self, cipher, nonce):
         if self.in_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             # use pk crypto to decrypt the packet
-            if not self.peer_id:
-                self.peer_id = publickey.Identity(self.peer, basedir=self.basedir)
-            if not self.me_id:
-                self.me_id = publickey.Identity(self.me, basedir=self.basedir)
             return nacl.crypto_box_open(cipher, nonce, self.peer_id.cp, self.me_id.cs)
         else:
             # decrypt using chained keys
@@ -161,10 +158,15 @@ class ChainingContext(object):
 
     def clear(self):
         clearmem(self.e_in)
+        self.e_in=None
         clearmem(self.e_out)
+        self.e_out=None
         clearmem(self.out_k)
+        self.out_k=None
         clearmem(self.in_k)
+        self.in_k=None
         clearmem(self.in_prev)
+        self.in_prev=None
         self.me_id.clear()
 
     def buffered_encrypt(self, infd,outfd):
