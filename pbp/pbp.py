@@ -44,10 +44,10 @@ def encrypt(msg, pwd=None, k=None):
     if not k:
         k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
     ciphertext = nacl.crypto_secretbox(msg, nonce, k)
-    if cleark:
+    if cleark and k:
         clearmem(k)
         k = None
-    if clearpwd:
+    if clearpwd and pwd:
         clearmem(pwd)
         pwd = None
     return (nonce, ciphertext)
@@ -121,9 +121,10 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         outfd.write(cipher)
         buf = fd.read(BLOCK_SIZE)
     clearmem(key)
+    key=None
 
     if fd != sys.stdin: fd.close()
-    if outfd != sys.stdout and type(outfd) == file: outfd.close()
+    if outfd != sys.stdout and isinstance(outfd,file): outfd.close()
 
 def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipients = 20, basedir=None):
     # provides a high level function to do decryption of files
@@ -172,6 +173,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipie
         key =  scrypt.hash(pwd, scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
         sender = None
         clearmem(pwd)
+        pwd=None
 
     if key:
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
@@ -210,7 +212,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     #         if unspecified but armor is, or if '-' or
     #         infile is unspecified, then it uses stdout
     #         otherwise it appends '.sig' to infile
-    # armor instructs the function to output ascii 
+    # armor instructs the function to output ascii
     # self specifies the sender for signing the message
     # basedir provides a root for the keystores
     # this function also handles buffering.
@@ -406,17 +408,7 @@ def mpecdh_end_handler(id, self, infile = None, outfile = None, basedir = None):
         ecdh.save_dh_keychain(outfile, keychain)
     return ctx.secret
 
-
-def test():
-    mpecdh_start_handler('1st', 3, 'alice', '/dev/null', '/tmp/step1', 'test-pbp')
-    mpecdh_start_handler('1st', 3, 'bob', '/tmp/step1', '/tmp/step2', 'test-pbp')
-    mpecdh_start_handler('1st', 3, 'carol', '/tmp/step2', '/tmp/step3', 'test-pbp')
-    mpecdh_end_handler('1st', 'alice', '/tmp/step3', '/tmp/step4', 'test-pbp')
-    mpecdh_end_handler('1st', 'bob', '/tmp/step4', '/tmp/step5', 'test-pbp')
-
 if __name__ == '__main__':
-    #test()
-    #sys.exit()
     from main import main
     lockmem()
     main()
