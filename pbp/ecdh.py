@@ -86,18 +86,3 @@ def save_dh_keychain(outfile, keychain):
     else:
         fd = open(outfile,'w')
     fd.write(''.join(keychain))
-
-def test():
-    p1 = MPECDH(4)
-    p2 = MPECDH(4)
-    p3 = MPECDH(4)
-    p4 = MPECDH(4)
-    # four way
-    p3.mpecdh2(p2.mpecdh2(p1.mpecdh2(p4.mpecdh1(p3.mpecdh1(p2.mpecdh1(p1.mpecdh1()))))))
-    print 1, b85encode(p1.secret)
-    print 2, b85encode(p2.secret)
-    print 3, b85encode(p3.secret)
-    print 4, b85encode(p4.secret)
-
-if __name__ == '__main__':
-    test()

@@ -4,7 +4,7 @@
 from tempfile import mkdtemp
 from shutil import rmtree
 import unittest, pbp, os, re
-from pbp import pbp, publickey
+from pbp import pbp, publickey, chaining, ecdh
 
 NAME = "keyname"
 MESSAGE = "Hello, world"
@@ -103,7 +103,7 @@ class TestPBP(unittest.TestCase):
         (pub2,secret) = pbp.dh2_handler(pub1)
         self.assertEquals(pbp.dh3_handler(pub2,exp), secret)
 
-    def test_mpecdh(self):
+    def test_3mpecdh(self):
         publickey.Identity('alice', basedir=self.pbp_path, create=True)
         publickey.Identity('bob', basedir=self.pbp_path, create=True)
         publickey.Identity('carol', basedir=self.pbp_path, create=True)
@@ -115,45 +115,211 @@ class TestPBP(unittest.TestCase):
         self.assertEquals(s1,s2)
         self.assertEquals(s2,s3)
 
+    def test_4mpecdh(self):
+        p1 = ecdh.MPECDH(1, peers=4)
+        p2 = ecdh.MPECDH(2, peers=4)
+        p3 = ecdh.MPECDH(3, peers=4)
+        p4 = ecdh.MPECDH(4, peers=4)
+        # four way
+        p3.mpecdh2(p2.mpecdh2(p1.mpecdh2(p4.mpecdh1(p3.mpecdh1(p2.mpecdh1(p1.mpecdh1()))))))
+        self.assertEquals(p1.secret,p2.secret)
+        self.assertEquals(p2.secret,p3.secret)
+        self.assertEquals(p3.secret,p4.secret)
+
     def test_chaining(self):
         publickey.Identity('alice', basedir=self.pbp_path, create=True)
         publickey.Identity('bob', basedir=self.pbp_path, create=True)
+
         msg=self.tmp_dir+'/msg'
         msg2=self.tmp_dir+'/msg2'
-        msg3=self.tmp_dir+'/msg3'
-        msg4=self.tmp_dir+'/msg4'
+        ct=self.tmp_dir+'/ct'
+
+        sender, receiver = 'alice', 'bob'
+
+        for i in xrange(10):
+            with open(msg, 'w') as fd:
+                fd.write(str(i) * 1080)
+
+            pbp.chaining_encrypt_handler(infile=msg, outfile=ct, recipient=receiver, self=sender, basedir=self.pbp_path)
+            pbp.chaining_decrypt_handler(infile=ct, outfile=msg2, recipient=sender, self=receiver, basedir=self.pbp_path)
+
+            with open(msg2, 'r') as fd:
+                res = fd.read()
+            self.assertEquals(res, str(i)*1080)
+
+            sender,receiver=receiver,sender
+
+    def test_oob_chaining(self):
+        # this test is sadly ugly, sorry.
+
+        publickey.Identity('alice', basedir=self.pbp_path, create=True)
+        publickey.Identity('bob', basedir=self.pbp_path, create=True)
+
+        msg=self.tmp_dir+'/msg'
+        msg2=self.tmp_dir+'/msg2'
         ct=self.tmp_dir+'/ct'
         ct2=self.tmp_dir+'/ct2'
         ct3=self.tmp_dir+'/ct3'
-        with open(msg, 'w') as fd:
-            fd.write('0' * 1080)
+        ct4=self.tmp_dir+'/ct4'
+        ct5=self.tmp_dir+'/ct5'
 
-        pbp.chaining_encrypt_handler(infile=msg, outfile=ct, recipient='bob', self='alice', basedir=self.pbp_path)
+        sender, receiver = 'alice', 'bob'
+
+        # do some proper exchange
+        for i in xrange(5):
+            with open(msg, 'w') as fd:
+                fd.write(str(i) * 1080)
+
+            pbp.chaining_encrypt_handler(infile=msg, outfile=ct, recipient=receiver, self=sender, basedir=self.pbp_path)
+            pbp.chaining_decrypt_handler(infile=ct, outfile=msg2, recipient=sender, self=receiver, basedir=self.pbp_path)
+
+            with open(msg2, 'r') as fd:
+                res = fd.read()
+            self.assertEquals(res, str(i)*1080)
+
+            sender,receiver=receiver,sender
+
+        with open(msg, 'w') as fd:
+            fd.write('a' * 1080)
+
+        pbp.chaining_encrypt_handler(infile=msg, outfile=ct, recipient='alice', self='bob', basedir=self.pbp_path)
         pbp.chaining_decrypt_handler(infile=ct, outfile=msg2, recipient='bob', self='alice', basedir=self.pbp_path)
 
         with open(msg2, 'r') as fd:
             res = fd.read()
-        self.assertEquals(res, '0'*1080)
+        self.assertEquals(res, 'a'*1080)
 
-        with open(msg, 'w') as fd:
-            fd.write('1' * 1080)
+        # resend previous message
+        pbp.chaining_encrypt_handler(infile=msg, outfile=ct, recipient='alice', self='bob', basedir=self.pbp_path)
+        pbp.chaining_decrypt_handler(infile=ct, outfile=msg2, recipient='bob', self='alice', basedir=self.pbp_path)
 
-        pbp.chaining_encrypt_handler(infile=msg, outfile=ct2, recipient='alice', self='bob', basedir=self.pbp_path)
-        pbp.chaining_decrypt_handler(infile=ct2, outfile=msg3, recipient='alice', self='bob', basedir=self.pbp_path)
-
-        with open(msg3, 'r') as fd:
+        with open(msg2, 'r') as fd:
             res = fd.read()
-        self.assertEquals(res, '1'*1080)
+        self.assertEquals(res, 'a'*1080)
 
-        #with open(msg, 'w') as fd:
-        #    fd.write('2' * 1080)
+        # answer message but mess up order
+        # would be nice to have random tests here, instead of the following synthetic
+        # b3,a1,b2,b1,a2 - where the letter is the recipent, and the number the order of creation
+        # 1st msg
+        with open(msg, 'w') as fd: fd.write('b1' * 1080)
+        pbp.chaining_encrypt_handler(infile=msg, outfile=ct, recipient='bob', self='alice', basedir=self.pbp_path)
+        # 2nd msg
+        with open(msg, 'w') as fd: fd.write('b2' * 1080)
+        pbp.chaining_encrypt_handler(infile=msg, outfile=ct2, recipient='bob', self='alice', basedir=self.pbp_path)
+        # 3rd msg
+        with open(msg, 'w') as fd: fd.write('b3' * 1080)
+        pbp.chaining_encrypt_handler(infile=msg, outfile=ct3, recipient='bob', self='alice', basedir=self.pbp_path)
+        # and 1st message in the other direction at the same time
+        with open(msg, 'w') as fd: fd.write('a1' * 1080)
+        pbp.chaining_encrypt_handler(infile=msg, outfile=ct4, recipient='alice', self='bob', basedir=self.pbp_path)
+        # 2nd message in the other direction at the same time
+        with open(msg, 'w') as fd: fd.write('a2' * 1080)
+        pbp.chaining_encrypt_handler(infile=msg, outfile=ct5, recipient='alice', self='bob', basedir=self.pbp_path)
 
-        #pbp.chaining_encrypt_handler(infile=msg, outfile=ct3, recipient='bob', self='alice', basedir=self.pbp_path)
-        #pbp.chaining_decrypt_handler(infile=ct3, outfile=msg4, recipient='bob', self='alice', basedir=self.pbp_path)
+        # 3rd msg decrypt
+        pbp.chaining_decrypt_handler(infile=ct3, outfile=msg2, recipient='alice', self='bob', basedir=self.pbp_path)
+        with open(msg2, 'r') as fd: res = fd.read()
+        self.assertEquals(res, 'b3'*1080)
 
-        #with open(msg4, 'r') as fd:
-        #    res = fd.read()
-        #self.assertEquals(res, '2'*1080)
+        # other direction decrypt
+        pbp.chaining_decrypt_handler(infile=ct4, outfile=msg2, recipient='bob', self='alice', basedir=self.pbp_path)
+        with open(msg2, 'r') as fd: res = fd.read()
+        self.assertEquals(res, 'a1'*1080)
+
+        # 2nd msg decrypt
+        pbp.chaining_decrypt_handler(infile=ct2, outfile=msg2, recipient='alice', self='bob', basedir=self.pbp_path)
+        with open(msg2, 'r') as fd: res = fd.read()
+        self.assertEquals(res, 'b2'*1080)
+        # 1st msg decrypt
+        pbp.chaining_decrypt_handler(infile=ct, outfile=msg2, recipient='alice', self='bob', basedir=self.pbp_path)
+        with open(msg2, 'r') as fd: res = fd.read()
+        self.assertEquals(res, 'b1'*1080)
+        # other direction 2nd decrypt
+        pbp.chaining_decrypt_handler(infile=ct5, outfile=msg2, recipient='bob', self='alice', basedir=self.pbp_path)
+        with open(msg2, 'r') as fd: res = fd.read()
+        self.assertEquals(res, 'a2'*1080)
+
+    def test_lower_chaining(self):
+        publickey.Identity('alice', basedir=self.pbp_path, create=True)
+        publickey.Identity('bob', basedir=self.pbp_path, create=True)
+
+        alice = chaining.ChainingContext('alice','bob', self.pbp_path)
+        bob = chaining.ChainingContext('bob','alice',self.pbp_path)
+
+        alice.load()
+        bob.load()
+
+        c,n = alice.send('howdy')
+        self.assertEquals('howdy', bob.receive(c,n))
+
+        c,n = bob.send('howdy')
+        self.assertEquals('howdy', alice.receive(c,n))
+
+        c,n = alice.send('howdy')
+        self.assertEquals('howdy', bob.receive(c,n))
+
+        c,n = alice.send('howdy')
+        self.assertEquals('howdy', bob.receive(c,n))
+
+        c,n = bob.send('howdy')
+        self.assertEquals('howdy', alice.receive(c,n))
+
+        c,n = alice.send('howdy')
+        self.assertEquals('howdy', bob.receive(c,n))
+
+        c,n = bob.send('howdy')
+        self.assertEquals('howdy', alice.receive(c,n))
+
+        c,n = alice.send('howdy')
+        self.assertEquals('howdy', bob.receive(c,n))
+
+        c,n = bob.send('howdy')
+        self.assertEquals('howdy', alice.receive(c,n))
+
+        c,n = alice.send('howdy')
+        # lose packet
+        c,n = alice.send('howdy')
+        self.assertEquals('howdy', bob.receive(c,n))
+
+        # cross send and loose packets
+        c,n = bob.send('howdy')
+        c,n = bob.send('howdy')
+        # crossing packets
+        c1,n1 = alice.send('howdy')
+        self.assertEquals('howdy', alice.receive(c,n))
+        self.assertEquals('howdy', bob.receive(c1,n1))
+
+        # continue normal sending
+        c,n = alice.send('howdy')
+        self.assertEquals('howdy', bob.receive(c,n))
+
+        # out of bound sending
+        c,n = bob.send('howdy')
+        c1,n1 = bob.send('howdy')
+        # crossing packets
+        c2,n2 = alice.send('howdy')
+        self.assertEquals('howdy', alice.receive(c1,n1))
+        self.assertEquals('howdy', alice.receive(c,n))
+        self.assertEquals('howdy', bob.receive(c2,n2))
+
+        # continue normal sending
+        c,n = alice.send('ok')
+        self.assertEquals('ok', bob.receive(c,n))
+
+        bob.save()
+        alice.save()
+
+        alice1 = chaining.ChainingContext('alice','bob', self.pbp_path)
+        bob1 = chaining.ChainingContext('bob','alice', self.pbp_path)
+
+        alice1.load()
+        bob1.load()
+
+        c,n = alice1.send('howdy')
+        self.assertEquals('howdy', bob1.receive(c,n))
+
+        c,n = bob1.send('howdy')
+        self.assertEquals('howdy', alice1.receive(c,n))
 
     def test_crypt(self):
         publickey.Identity('alice', basedir=self.pbp_path, create=True)

@@ -282,14 +282,3 @@ def get_sk_dir(basedir):
 
 def get_pk_dir(basedir):
     return os.path.join(basedir, 'pk')
-
-def test():
-    me = Identity('me', create=True, basedir='test-pbp')
-    you = Identity('you', create=True, basedir='test-pbp')
-    print me
-    print you
-    print you.decrypt(me.encrypt('howdy', [you]))
-    print verify(me.sign('howdy'), basedir='test-pbp')
-
-if __name__ == '__main__':
-    test()
