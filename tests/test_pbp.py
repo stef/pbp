@@ -386,7 +386,6 @@ class TestPBP(unittest.TestCase):
         h=pbp.hash_handler(infile=msg, k='', outlen=16)
         self.assertEquals(h, '%\x80\x1e\xc8\x0c\x17\x89Z_I\x15\x19.Z P')
         h=pbp.hash_handler(infile=msg, k='some random "key" with 32 byte output', outlen=32)
-        print repr(h)
         self.assertEquals(h,"\xae\xf5\x84\x9cr\xf5D1D\x9e}&\x18\xa5Q&LMw\xe3\xa08y\xbf~'\xf5\x0b\x9a\xe4\xd9\x97")
 
 
