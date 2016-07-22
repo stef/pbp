@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
 import getpass, sys, struct
-from utils import b85encode, b85decode, lockmem, inputfd, outputfd
+from utils import b85encode, b85decode, lockmem, inputfd, outputfd, inc_nonce
 from SecureString import clearmem
 import chaining, publickey, ecdh
 import os
@@ -33,12 +33,13 @@ def getkey(size, pwd='', empty=False, text=''):
         #if clearpwd: clearmem(pwd)
         return key
 
-def encrypt(msg, pwd=None, k=None):
+def encrypt(msg, pwd=None, k=None, nonce=None):
     # encrypts a message symmetrically using crypto_secretbox
     # k specifies an encryption key, which if not supplied, is derived from
     # pwd which is queried from the user, if also not specified.
     # returns a (nonce, ciphertext) tuple
-    nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
+    if nonce==None:
+        nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
     clearpwd = (pwd is None)
     cleark = (k is None)
     if not k:
@@ -115,11 +116,16 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
         key = getkey(nacl.crypto_secretbox_KEYBYTES)
 
     buf = fd.read(BLOCK_SIZE)
-    while buf:
+    if buf:
         nonce, cipher = encrypt(buf, k=key)
         outfd.write(nonce)
         outfd.write(cipher)
         buf = fd.read(BLOCK_SIZE)
+        while buf:
+            nonce = inc_nonce(nonce)
+            nonce, cipher = encrypt(buf, k=key, nonce=nonce)
+            outfd.write(cipher)
+            buf = fd.read(BLOCK_SIZE)
     clearmem(key)
     key=None
 
@@ -177,17 +183,13 @@ def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipie
 
     if key:
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
-        while len(nonce) == nacl.crypto_secretbox_NONCEBYTES:
-            buf = fd.read(BLOCK_SIZE + nacl.crypto_secretbox_MACBYTES)
-            if not buf:
-                raise ValueError('decryption failed')
-                break
+        buf = fd.read(BLOCK_SIZE + nacl.crypto_secretbox_MACBYTES)
+        while buf:
             outfd.write(decrypt((nonce, buf), k = key))
-            nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
+            nonce = inc_nonce(nonce)
+            buf = fd.read(BLOCK_SIZE + nacl.crypto_secretbox_MACBYTES)
         clearmem(key)
         key = None
-        if 0 < len(nonce) < nacl.crypto_secretbox_NONCEBYTES:
-            raise ValueError('decryption failed')
 
     if fd != sys.stdin: fd.close()
     if outfd != sys.stdout and type(outfd) == file: outfd.close()

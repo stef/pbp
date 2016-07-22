@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 import struct, ctypes, sys
+import pysodium as nacl
 
 def split_by_n( seq, n ):
     """A generator to divide a sequence into chunks of n units.
@@ -124,4 +125,13 @@ def outputfd(outfile):
         return sys.stdout
     else:
         return open(outfile,'w')
+
+def inc_nonce(nonce):
+    i=0
+    nonce = [x for x in nonce]
+    while(i<nacl.crypto_box_NONCEBYTES):
+        nonce[i]=chr(ord(nonce[i])+1)
+        if nonce[i]!=0: break
+        i+=1
+    return ''.join(nonce)
 

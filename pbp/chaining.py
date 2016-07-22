@@ -19,6 +19,7 @@
 
 import pysodium as nacl, os
 from SecureString import clearmem
+from utils import inc_nonce
 import publickey
 BLOCK_SIZE = 1 << 15
 
@@ -172,13 +173,16 @@ class ChainingContext(object):
     def buffered_encrypt(self, infd,outfd):
         self.load()
         msg=infd.read(BLOCK_SIZE)
-        cipher, nonce = self.send(msg)
-        while True:
+        if msg:
+            cipher, nonce = self.send(msg)
             outfd.write(nonce)
             outfd.write(cipher)
             msg=infd.read(BLOCK_SIZE)
-            if not msg: break
-            cipher, nonce = self.encrypt(msg)
+            while msg:
+                nonce = inc_nonce(nonce)
+                cipher, nonce = self.encrypt(msg, nonce)
+                outfd.write(cipher)
+                msg=infd.read(BLOCK_SIZE)
         self.save()
         self.clear()
 
@@ -191,14 +195,11 @@ class ChainingContext(object):
             nonce = infd.read(nacl.crypto_secretbox_NONCEBYTES)
         ct = infd.read(blocklen+16)
         msg = self.receive(ct,nonce)
-        while True:
+        while ct:
             outfd.write(msg)
-            nonce = infd.read(nacl.crypto_secretbox_NONCEBYTES)
-            if not nonce:
-                break
-            if len(nonce) != nacl.crypto_secretbox_NONCEBYTES:
-                raise ValueError
+            nonce = inc_nonce(nonce)
             ct = infd.read(BLOCK_SIZE+16)
-            msg = self.decrypt(ct,nonce)
+            if ct:
+                msg = self.decrypt(ct,nonce)
         self.save()
         self.clear()

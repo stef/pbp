@@ -1,6 +1,6 @@
 Encrypted/signed messages
 
-secret key crypto output is always: nonce|cipher(key, nonce, msg)
+secret key crypto output is always: nonce|cipher(key, nonce, msg)|cipher(key, nonce+1, msg1)|...
 
 signed output is always msg|sig[64]
 
