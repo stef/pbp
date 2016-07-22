@@ -44,7 +44,7 @@ Extensibility
 
 using pbp and the underlying pysodium[1] library it's easy to extend
 pbp.  Some examples are the experimental forward secrecy mode (see
-description in docs/chaining-dh.txt), the support for ECDH key
+description in doc/chaining-dh.txt), the support for ECDH key
 exchanges from the command-line and generation of arbitrarily large
 random byte streams.
 
@@ -55,7 +55,7 @@ Fingerprinting
 
 pbp tries to avoid to store any sensitive plaintext info, the
 encrypted files all should look like random noise. for a description
-of the packet formats see docs/fileformats.txt.
+of the packet formats see doc/fileformats.txt.
 
 Testing
 
