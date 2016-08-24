@@ -11,7 +11,7 @@ def read(fname):
 
 setup(
     name = "pbp",
-    version = "0.3.1",
+    version = "0.3.2",
     author = "Stefan Marsiske",
     author_email = "s@ctrlc.hu",
     description = ("simple crypto tool"),
