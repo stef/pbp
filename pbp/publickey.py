@@ -45,12 +45,14 @@ class Identity(object):
             return getattr(self, name)
 
     def keyid(self):
-        res = nacl.crypto_generichash(''.join((self.created.isoformat(),
-                                                self.valid.isoformat(),
-                                                self.mp,
-                                                self.sp,
-                                                self.cp
-                                                )))[:16]
+        joined_bytestring = b"".join((
+            self.created.isoformat().encode('utf-8'),
+            self.valid.isoformat().encode('utf-8'),
+            self.mp,
+            self.sp,
+            self.cp
+        ))
+        res = nacl.crypto_generichash(joined_bytestring)[:16]
         return ' '.join(split_by_n(binascii.b2a_hex(res).decode("ascii"), 4))
 
     def create(self):
@@ -124,9 +126,11 @@ class Identity(object):
             return nacl.crypto_secretbox_open(fd.read(), nonce, k)
 
     def savepublickeys(self):
-        with open(get_pk_filename(self.basedir, self.name), 'w') as fd:
+        with open(get_pk_filename(self.basedir, self.name), 'wb') as fd:
             dates='{:<32}{:<32}'.format(self.created.isoformat(), self.valid.isoformat())
-            fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates+self.name, self.ms))
+            name = self.name.encode('utf-8')
+            datesb = dates.encode('utf-8')
+            fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+datesb+name, self.ms))
 
     def savesecretekey(self, ext, key):
         fname = get_sk_filename(self.basedir, self.name, ext)
@@ -134,7 +138,7 @@ class Identity(object):
                        empty=True,
                        text='Master' if ext == 'mk' else 'Subkey')
         nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-        with open(fname,'w') as fd:
+        with open(fname,'wb') as fd:
             fd.write(nonce)
             fd.write(nacl.crypto_secretbox(key, nonce, k))
 
