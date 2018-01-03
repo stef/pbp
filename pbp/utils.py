@@ -58,7 +58,7 @@ def b85encode(text, pad=False):
     olen = l % 4
     if olen:
         olen += 1
-    olen += l / 4 * 5
+    olen += l // 4 * 5
     return out[:olen]
 
 def b85decode(text):
