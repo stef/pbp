@@ -1,13 +1,16 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
-import os, stat,  getpass, datetime, binascii
+import os, sys, stat,  getpass, datetime, binascii
+from .utils import split_by_n, b85encode, b85decode
+from SecureString import clearmem
+if sys.version_info[0] < 3:
+    import pbp
+else:
+    from . import pbp
 try:
     from itertools import imap as map
 except ImportError:
     pass
-from .utils import split_by_n, b85encode, b85decode
-from SecureString import clearmem
-import pbp
 
 SIGPREFIX = '\nnacl-'
 BLOCK_SIZE = 1 << 15
