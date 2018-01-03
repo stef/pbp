@@ -10,8 +10,8 @@ secrecy mode and a multi-party DH mode.
 
 ## Installation
 
-You possibly need to run (or an equivalent command) sudo apt-get install git
-python-virtualenv gcc python-dev libffi-dev scrypt to satisfy all basic dependencies.
+You possibly need to run (or an equivalent command) `sudo apt-get install git
+python-virtualenv gcc python-dev libffi-dev scrypt` to satisfy all basic dependencies.
 And install libsodium (http://doc.libsodium.org/installation/README.html).
 
     pip install pbp
