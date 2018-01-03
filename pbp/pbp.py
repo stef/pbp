@@ -83,7 +83,7 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
         clearmem(k)
         k = None
     if res:
-        return res
+        return res.decode('utf-8')
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     # provides a high level function to do encryption of files
