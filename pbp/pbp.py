@@ -44,7 +44,7 @@ def encrypt(msg, pwd=None, k=None, nonce=None):
     cleark = (k is None)
     if not k:
         k = getkey(nacl.crypto_secretbox_KEYBYTES, pwd=pwd)
-    ciphertext = nacl.crypto_secretbox(msg, nonce, k)
+    ciphertext = nacl.crypto_secretbox(msg.encode('utf-8'), nonce, k)
     if cleark and k:
         clearmem(k)
         k = None
