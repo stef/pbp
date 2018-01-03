@@ -19,8 +19,8 @@
 
 import pysodium as nacl, os
 from SecureString import clearmem
-from utils import inc_nonce
-import publickey
+from .utils import inc_nonce
+from . import publickey
 BLOCK_SIZE = 1 << 15
 
 class ChainingContext(object):

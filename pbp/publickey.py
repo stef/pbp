@@ -1,8 +1,11 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
 import os, stat,  getpass, datetime, binascii
-from itertools import imap
-from utils import split_by_n, b85encode, b85decode
+try:
+    from itertools import imap as map
+except ImportError:
+    pass
+from .utils import split_by_n, b85encode, b85decode
 from SecureString import clearmem
 import pbp
 
@@ -252,7 +255,7 @@ def get_public_keys(basedir=None):
     pk_dir = get_pk_dir(basedir)
     if not os.path.exists(pk_dir):
         return
-    for root, ext in imap(os.path.splitext, os.listdir(pk_dir)):
+    for root, ext in map(os.path.splitext, os.listdir(pk_dir)):
         if ext == '.pk':
             yield Identity(root, publicOnly=True, basedir=basedir)
 
@@ -263,7 +266,7 @@ def get_secret_keys(basedir=None):
     sk_dir = get_sk_dir(basedir)
     if not os.path.exists(sk_dir):
         return
-    for root, ext in imap(os.path.splitext, os.listdir(sk_dir)):
+    for root, ext in map(os.path.splitext, os.listdir(sk_dir)):
         if ext in ('.mk', '.sk') and root not in seen:
             seen.add(root)
             yield Identity(root, basedir=basedir)

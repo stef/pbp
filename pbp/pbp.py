@@ -1,9 +1,9 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
 import getpass, sys, struct
-from utils import b85encode, b85decode, lockmem, inputfd, outputfd, inc_nonce
+from .utils import b85encode, b85decode, lockmem, inputfd, outputfd, inc_nonce
 from SecureString import clearmem
-import chaining, publickey, ecdh
+from . import chaining, publickey, ecdh
 import os
 
 ASYM_CIPHER = 5

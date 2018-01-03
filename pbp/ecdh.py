@@ -18,8 +18,8 @@
 # (C) 2013 by Stefan Marsiske, <s@ctrlc.hu>
 
 import pysodium as nacl, os, sys
-import publickey
-from utils import b85encode, split_by_n
+from .import publickey
+from .utils import b85encode, split_by_n
 
 class MPECDH():
     def __init__(self, id, me = None, peers = None, basedir = None):
