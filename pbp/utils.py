@@ -117,18 +117,18 @@ def inputfd(infile):
     if not infile or infile == '-':
         return sys.stdin
     else:
-        return open(infile,'r')
+        return open(infile,'rb')
 
 def outputfd(outfile):
     if hasattr(outfile, 'read'): return outfile
     if not outfile or outfile == '-':
         return sys.stdout
     else:
-        return open(outfile,'w')
+        return open(outfile,'wb')
 
 def inc_nonce(nonce):
     i=0
-    nonce = [x for x in nonce]
+    nonce = [chr(x) for x in bytearray(nonce)]
     while(i<nacl.crypto_box_NONCEBYTES):
         nonce[i]=chr(ord(nonce[i])+1)
         if nonce[i]!=0: break
