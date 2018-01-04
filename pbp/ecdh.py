@@ -86,3 +86,5 @@ def save_dh_keychain(outfile, keychain):
     else:
         fd = open(outfile,'wb')
     fd.write(b''.join(keychain))
+    if fd != sys.stdout:
+        fd.close()
