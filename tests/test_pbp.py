@@ -384,9 +384,9 @@ class TestPBP(unittest.TestCase):
         with open(msg, 'w') as fd:
             fd.write('0' * 1080)
         h=pbp.hash_handler(infile=msg, k='', outlen=16)
-        self.assertEquals(h, '%\x80\x1e\xc8\x0c\x17\x89Z_I\x15\x19.Z P')
-        h=pbp.hash_handler(infile=msg, k='some random "key" with 32 byte output', outlen=32)
-        self.assertEquals(h,"\xae\xf5\x84\x9cr\xf5D1D\x9e}&\x18\xa5Q&LMw\xe3\xa08y\xbf~'\xf5\x0b\x9a\xe4\xd9\x97")
+        self.assertEquals(h, b'%\x80\x1e\xc8\x0c\x17\x89Z_I\x15\x19.Z P')
+        h=pbp.hash_handler(infile=msg, k='some random "key" with 32 byte output'.encode('utf-8'), outlen=32)
+        self.assertEquals(h,b"\xae\xf5\x84\x9cr\xf5D1D\x9e}&\x18\xa5Q&LMw\xe3\xa08y\xbf~'\xf5\x0b\x9a\xe4\xd9\x97")
 
 
     def tearDown(self):
