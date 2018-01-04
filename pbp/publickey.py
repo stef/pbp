@@ -207,7 +207,7 @@ class Identity(object):
         #print 'clearing'
         #self.clear()
         if armor:
-            sig = b"%s%s" % (SIGPREFIX, b85encode(sig))
+            sig = b"".join((SIGPREFIX, b85encode(sig)))
         outfd.write(sig)
 
 def verify(msg, master=False, basedir=None):
@@ -228,7 +228,7 @@ def buffered_verify(infd, outfd, basedir, self = None):
             next=infd.read(int(BLOCK_SIZE/2))
         else: next=b''
 
-        fullblock = b"%s%s" % (block, next)
+        fullblock = b"".join((block, next))
         sigoffset = fullblock.rfind(SIGPREFIX)
 
         if 0 <= sigoffset <= (BLOCK_SIZE/2):
