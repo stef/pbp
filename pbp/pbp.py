@@ -253,9 +253,9 @@ def keysign_handler(name=None, self=None, basedir=None):
     # self the signers name
     # basedir the root for the keystore
     fname = publickey.get_pk_filename(basedir, name)
-    with open(fname,'r') as fd:
+    with open(fname,'rb') as fd:
         data = fd.read()
-    with open(fname+'.sig','a') as fd:
+    with open(fname+'.sig','ab') as fd:
         me = publickey.Identity(self, basedir=basedir)
         sig = me.sign(data, master=True)
         if sig:
@@ -268,10 +268,10 @@ def keycheck_handler(name=None, basedir=None):
     # name is the key to be verified
     # basedir the root for the keystore
     fname = publickey.get_pk_filename(basedir, name)
-    with open(fname,'r') as fd:
+    with open(fname,'rb') as fd:
         pk = fd.read()
     sigs=[]
-    with open(fname+".sig",'r') as fd:
+    with open(fname+".sig",'rb') as fd:
         sigdat=fd.read()
     i=0
     csb = nacl.crypto_sign_BYTES
