@@ -49,7 +49,7 @@ class MPECDH():
         keyfname="%s/dh/%s/%s" % (self.basedir, self.me, self.id)
         if not self.me_id:
             self.me_id = publickey.Identity(self.me, basedir=self.basedir)
-        with open(keyfname,'r') as fd:
+        with open(keyfname,'rb') as fd:
             nonce = fd.read(nacl.crypto_box_NONCEBYTES)
             raw = fd.read()
             self.key =  nacl.crypto_box_open(raw, nonce, self.me_id.cp, self.me_id.cs)
@@ -75,7 +75,7 @@ def load_dh_keychain(infile):
     if not infile or infile == '-':
         fd = sys.stdin
     else:
-        fd = open(infile,'r')
+        fd = open(infile,'rb')
     keychain = list(split_by_n(fd.read(), nacl.crypto_scalarmult_curve25519_BYTES))
     if fd != sys.stdin: fd.close()
     return keychain
@@ -84,5 +84,5 @@ def save_dh_keychain(outfile, keychain):
     if not outfile or outfile == '-':
         fd = sys.stdout
     else:
-        fd = open(outfile,'w')
-    fd.write(''.join(keychain))
+        fd = open(outfile,'wb')
+    fd.write(b''.join(keychain))
