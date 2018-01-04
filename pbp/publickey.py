@@ -12,7 +12,7 @@ try:
 except ImportError:
     pass
 
-SIGPREFIX = '\nnacl-'
+SIGPREFIX = b'\nnacl-'
 BLOCK_SIZE = 1 << 15
 
 class Registry(type):
@@ -210,7 +210,7 @@ class Identity(object):
         #print 'clearing'
         #self.clear()
         if armor:
-            sig = "%s%s" % (SIGPREFIX, b85encode(sig))
+            sig = b"%s%s" % (SIGPREFIX, b85encode(sig))
         outfd.write(sig)
 
 def verify(msg, master=False, basedir=None):
@@ -229,19 +229,19 @@ def buffered_verify(infd, outfd, basedir, self = None):
         # sigs spanning block boundaries
         if len(block)==(BLOCK_SIZE/2):
             next=infd.read(int(BLOCK_SIZE/2))
-        else: next=''
+        else: next=b''
 
-        fullblock = "%s%s" % (block, next)
+        fullblock = b"%s%s" % (block, next)
         sigoffset = fullblock.rfind(SIGPREFIX)
 
         if 0 <= sigoffset <= (BLOCK_SIZE/2):
             sig = b85decode(fullblock[sigoffset+len(SIGPREFIX):sigoffset+len(SIGPREFIX)+80])
             block = block[:sigoffset]
-            next = ''
+            next = b''
         elif len(fullblock)<(BLOCK_SIZE/2)+nacl.crypto_sign_BYTES:
             sig = fullblock[-nacl.crypto_sign_BYTES:]
             block = fullblock[:-nacl.crypto_sign_BYTES]
-            next = ''
+            next = b''
         state = nacl.crypto_generichash_update(state, block)
         if outfd: outfd.write(block)
         block = next

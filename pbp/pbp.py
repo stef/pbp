@@ -223,7 +223,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     if (not outfile and armor) or outfile == '-' or (not infile or infile == '-'):
         outfd = sys.stdout
     else:
-        outfd = open(outfile or infile+'.sig','w')
+        outfd = open(outfile or infile+'.sig','wb')
 
     publickey.Identity(self, basedir=basedir).buffered_sign(fd, outfd, armor)
 
