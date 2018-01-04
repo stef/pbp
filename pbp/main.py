@@ -1,19 +1,20 @@
 #!/usr/bin/env python2
 from __future__ import print_function
 import argparse, os, sys, datetime, binascii
-from utils import b85encode, lockmem, split_by_n
+from .utils import b85encode, lockmem, split_by_n
 from SecureString import clearmem
-import publickey, pysodium as nacl
+import pysodium as nacl
 try:
     import pitchfork
     PITCHFORK=True
 except: # ignore missing pitchfork
     PITCHFORK=False
-from pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
-from pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
-from pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
-from pbp import dh1_handler, dh2_handler, dh3_handler, mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
-from pbp import hash_handler
+from .pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
+from .pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
+from .pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
+from .pbp import dh1_handler, dh2_handler, dh3_handler, mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
+from .pbp import hash_handler
+from . import publickey
 
 def main():
     # main command line handler for pbp
