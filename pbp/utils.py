@@ -116,7 +116,7 @@ def lockmem():
 def inputfd(infile):
     if hasattr(infile, 'read'): return infile
     if not infile or infile == '-':
-        return sys.stdin
+        return getattr(sys.stdin, 'buffer', sys.stdin)
     else:
         return open(infile,'rb')
 
