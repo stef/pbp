@@ -31,7 +31,7 @@ def b85encode(text, pad=False):
     l = len(text)
     r = l % 4
     if r:
-        text += '\0' * (4 - r)
+        text += b'\0' * (4 - r)
     longs = len(text) >> 2
     out = []
     words = struct.unpack('>%dL' % (longs), text)
@@ -94,8 +94,9 @@ def b85decode(text):
 
     # Unpad previously zero padded input, if any
     unpadlen = len(out)
+    byteout = bytearray(out)
     for i in reversed(range(unpadlen)):
-        if out[i] != '\0' and i < unpadlen:
+        if byteout[i] != 0 and i < unpadlen:
             unpadlen = i + 1
             break
 

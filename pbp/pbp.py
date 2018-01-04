@@ -288,7 +288,8 @@ def export_handler(self, basedir=None):
     # exports key self from basedir, outputs to stdout, key is ascii armored
     keys = publickey.Identity(self, basedir=basedir)
     dates='{:<32}{:<32}'.format(keys.created.isoformat(), keys.valid.isoformat())
-    pkt = keys.sign(keys.mp+keys.sp+keys.cp+dates+keys.name, master=True)
+    datesb = dates.encode('utf-8')
+    pkt = keys.sign(keys.mp+keys.sp+keys.cp+datesb+keys.name.encode('utf-8'), master=True)
     keys.clear()
     return b85encode(pkt, True)
 
@@ -297,20 +298,20 @@ def import_handler(infile=None, basedir=None):
     if not infile:
         b85 = sys.stdin.readline().strip()
     else:
-        with open(infile) as fd:
+        with open(infile, 'r') as fd:
             b85 = fd.readline().strip()
     pkt = b85decode(b85)
     mp = pkt[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
     keys = nacl.crypto_sign_open(pkt, mp)
     if not keys:
         return
-    name = keys[(nacl.crypto_sign_PUBLICKEYBYTES*3)+2*32:]
+    name = keys[(nacl.crypto_sign_PUBLICKEYBYTES*3)+2*32:].decode('utf-8')
     kfile = publickey.get_pk_filename(basedir, name)
     if os.path.exists(kfile):
         bkp = kfile+'.old'
         print >>sys.stderr, "backing up existing key to %s" % bkp
         os.rename(kfile,bkp)
-    with open(kfile, 'w') as fd:
+    with open(kfile, 'wb') as fd:
         fd.write(pkt)
     # TODO check if key exists, then ask for confirmation of pk overwrite
     return name
