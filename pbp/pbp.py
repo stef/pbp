@@ -83,7 +83,7 @@ def decrypt(pkt, pwd=None, k=None, retries=3):
         clearmem(k)
         k = None
     if res:
-        return res.decode('utf-8')
+        return res
 
 def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedir=None):
     # provides a high level function to do encryption of files
@@ -185,7 +185,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipie
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         buf = fd.read(BLOCK_SIZE + nacl.crypto_secretbox_MACBYTES)
         while buf:
-            outfd.write(decrypt((nonce, buf), k = key).encode('utf-8'))
+            outfd.write(decrypt((nonce, buf), k = key))
             nonce = inc_nonce(nonce)
             buf = fd.read(BLOCK_SIZE + nacl.crypto_secretbox_MACBYTES)
         clearmem(key)

@@ -53,12 +53,12 @@ class TestPBP(unittest.TestCase):
     def test_encrypt_sym_pwprompt(self):
         encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=PASSWORD)
         decrypted = pbp.decrypt(encrypted)
-        self.assertEquals(decrypted, MESSAGE)
+        self.assertEquals(decrypted, MESSAGE.encode('utf-8'))
 
     def test_encrypt_sym(self):
         encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=PASSWORD)
         decrypted = pbp.decrypt(encrypted, pwd=PASSWORD)
-        self.assertEquals(decrypted, MESSAGE)
+        self.assertEquals(decrypted, MESSAGE.encode('utf-8'))
 
     def test_encrypt_recipient(self):
         self_key = self.gen_key()
