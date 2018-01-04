@@ -156,7 +156,7 @@ class Identity(object):
         mk = nacl.randombytes(nacl.crypto_secretbox_KEYBYTES)
         c = self.keyencrypt(mk, recipients)
         nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-        return (nonce, c, nacl.crypto_secretbox(msg.encode('utf-8'), nonce, mk))
+        return (nonce, c, nacl.crypto_secretbox(msg, nonce, mk))
 
     def keydecrypt(self, peers):
         for nonce, ck in peers:

@@ -43,27 +43,27 @@ class TestPBP(unittest.TestCase):
         # because identity loads keys dynamicly
 
     def test_encrypt_sym_pwprompt_fail(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
+        encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=OTHER_PW)
         self.assertTrue(pbp.decrypt(encrypted, pwd='asdf') is None)
 
     def test_encrypt_sym_fail(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
+        encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=OTHER_PW)
         self.assertTrue(pbp.decrypt(encrypted, pwd=PASSWORD) is None)
 
     def test_encrypt_sym_pwprompt(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
+        encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=PASSWORD)
         decrypted = pbp.decrypt(encrypted)
         self.assertEquals(decrypted, MESSAGE)
 
     def test_encrypt_sym(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
+        encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=PASSWORD)
         decrypted = pbp.decrypt(encrypted, pwd=PASSWORD)
         self.assertEquals(decrypted, MESSAGE)
 
     def test_encrypt_recipient(self):
         self_key = self.gen_key()
         rcpt_key = self.gen_key()
-        encrypted = self_key.encrypt(MESSAGE, recipients=[rcpt_key])
+        encrypted = self_key.encrypt(MESSAGE.encode('utf-8'), recipients=[rcpt_key])
         for key in (rcpt_key, self_key):
             decrypted = rcpt_key.decrypt(encrypted)
             self.assertEquals(decrypted[1], MESSAGE)
@@ -72,7 +72,7 @@ class TestPBP(unittest.TestCase):
         self_key = self.gen_key()
         rcpt_key = self.gen_key()
         other_key = self.gen_key()
-        encrypted = self_key.encrypt(MESSAGE, recipients=[rcpt_key])
+        encrypted = self_key.encrypt(MESSAGE.encode('utf-8'), recipients=[rcpt_key])
         self.assertTrue(other_key.decrypt(encrypted) is None)
 
     def test_sign_fail(self):
