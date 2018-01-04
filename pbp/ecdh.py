@@ -41,7 +41,7 @@ class MPECDH():
         nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
         if not self.me_id:
             self.me_id = publickey.Identity(self.me, basedir=self.basedir)
-        with open(fname,'w') as fd:
+        with open(fname,'wb') as fd:
             fd.write(nonce)
             fd.write(nacl.crypto_box(self.key, nonce, self.me_id.cp, self.me_id.cs))
 

@@ -92,7 +92,7 @@ class Identity(object):
 
     def loadkey(self, type):
         if type in ['mp','cp','sp', 'created', 'valid']:
-            with open(get_pk_filename(self.basedir, self.name), 'r') as fd:
+            with open(get_pk_filename(self.basedir, self.name), 'rb') as fd:
                 tmp=fd.read()
             mk=tmp[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
             tmp = nacl.crypto_sign_open(tmp, mk)
@@ -102,8 +102,8 @@ class Identity(object):
             i+=nacl.crypto_sign_PUBLICKEYBYTES
             if type == 'cp': self.cp=tmp[i:i+nacl.crypto_box_PUBLICKEYBYTES]
             i+=nacl.crypto_box_PUBLICKEYBYTES
-            self.created = parse_isodatetime(tmp[i:i + 32])
-            self.valid = parse_isodatetime(tmp[i + 32:i + 64])
+            self.created = parse_isodatetime(tmp[i:i + 32].decode('utf-8'))
+            self.valid = parse_isodatetime(tmp[i + 32:i + 64].decode('utf-8'))
 
         elif type in ['cs', 'ss']:
             tmp = get_sk_filename(self.basedir, self.name)
@@ -171,7 +171,8 @@ class Identity(object):
     def decrypt(self, pkt):
         peer, key = self.keydecrypt(pkt[1])
         if key:
-            return peer, nacl.crypto_secretbox_open(pkt[2], pkt[0], key)
+            message = nacl.crypto_secretbox_open(pkt[2], pkt[0], key)
+            return peer, message.decode('utf-8')
 
     def sign(self, msg, master=False):
         signing_key = self.ms if master else self.ss
