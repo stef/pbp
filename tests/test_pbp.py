@@ -249,62 +249,62 @@ class TestPBP(unittest.TestCase):
         alice.load()
         bob.load()
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = bob.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
+        c,n = bob.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = bob.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
+        c,n = bob.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = bob.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
+        c,n = bob.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = bob.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
+        c,n = bob.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
 
-        c,n = alice.send('howdy')
+        c,n = alice.send('howdy'.encode('utf-8'))
         # lose packet
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
         # cross send and loose packets
-        c,n = bob.send('howdy')
-        c,n = bob.send('howdy')
+        c,n = bob.send('howdy'.encode('utf-8'))
+        c,n = bob.send('howdy'.encode('utf-8'))
         # crossing packets
-        c1,n1 = alice.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
-        self.assertEquals('howdy', bob.receive(c1,n1))
+        c1,n1 = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
+        self.assertEquals(b'howdy', bob.receive(c1,n1))
 
         # continue normal sending
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
         # out of bound sending
-        c,n = bob.send('howdy')
-        c1,n1 = bob.send('howdy')
+        c,n = bob.send('howdy'.encode('utf-8'))
+        c1,n1 = bob.send('howdy'.encode('utf-8'))
         # crossing packets
-        c2,n2 = alice.send('howdy')
-        self.assertEquals('howdy', alice.receive(c1,n1))
-        self.assertEquals('howdy', alice.receive(c,n))
-        self.assertEquals('howdy', bob.receive(c2,n2))
+        c2,n2 = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c1,n1))
+        self.assertEquals(b'howdy', alice.receive(c,n))
+        self.assertEquals(b'howdy', bob.receive(c2,n2))
 
         # continue normal sending
-        c,n = alice.send('ok')
-        self.assertEquals('ok', bob.receive(c,n))
+        c,n = alice.send('ok'.encode('utf-8'))
+        self.assertEquals(b'ok', bob.receive(c,n))
 
         bob.save()
         alice.save()
@@ -315,11 +315,11 @@ class TestPBP(unittest.TestCase):
         alice1.load()
         bob1.load()
 
-        c,n = alice1.send('howdy')
-        self.assertEquals('howdy', bob1.receive(c,n))
+        c,n = alice1.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob1.receive(c,n))
 
-        c,n = bob1.send('howdy')
-        self.assertEquals('howdy', alice1.receive(c,n))
+        c,n = bob1.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice1.receive(c,n))
 
     def test_crypt(self):
         publickey.Identity('alice', basedir=self.pbp_path, create=True)
