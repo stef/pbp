@@ -136,7 +136,7 @@ class TestPBP(unittest.TestCase):
 
         sender, receiver = 'alice', 'bob'
 
-        for i in xrange(10):
+        for i in range(10):
             with open(msg, 'w') as fd:
                 fd.write(str(i) * 1080)
 
@@ -166,7 +166,7 @@ class TestPBP(unittest.TestCase):
         sender, receiver = 'alice', 'bob'
 
         # do some proper exchange
-        for i in xrange(5):
+        for i in range(5):
             with open(msg, 'w') as fd:
                 fd.write(str(i) * 1080)
 
