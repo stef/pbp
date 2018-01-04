@@ -130,7 +130,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     key=None
 
     if fd != sys.stdin: fd.close()
-    if outfd != sys.stdout and isinstance(outfd,file): outfd.close()
+    if outfd != sys.stdout: outfd.close()
 
 def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipients = 20, basedir=None):
     # provides a high level function to do decryption of files
@@ -192,7 +192,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipie
         key = None
 
     if fd != sys.stdin: fd.close()
-    if outfd != sys.stdout and type(outfd) == file: outfd.close()
+    if outfd != sys.stdout: outfd.close()
     return sender
 
 def hash_handler(infile=None, k='', outlen=16):
@@ -297,7 +297,7 @@ def import_handler(infile=None, basedir=None):
     if not infile:
         b85 = sys.stdin.readline().strip()
     else:
-        with file(infile) as fd:
+        with open(infile) as fd:
             b85 = fd.readline().strip()
     pkt = b85decode(b85)
     mp = pkt[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
