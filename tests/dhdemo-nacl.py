@@ -97,7 +97,7 @@ class ECDH:
         return str(peers.index(self))
 
     def __str__(self):
-        return b85encode(self.shared)
+        return b85encode(self.public)
 
     @staticmethod
     def mpecdh(peers):
