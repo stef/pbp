@@ -185,7 +185,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipie
         nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
         buf = fd.read(BLOCK_SIZE + nacl.crypto_secretbox_MACBYTES)
         while buf:
-            outfd.write(decrypt((nonce, buf), k = key))
+            outfd.write(decrypt((nonce, buf), k = key).encode('utf-8'))
             nonce = inc_nonce(nonce)
             buf = fd.read(BLOCK_SIZE + nacl.crypto_secretbox_MACBYTES)
         clearmem(key)
