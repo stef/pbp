@@ -9,11 +9,12 @@ try:
     PITCHFORK=True
 except: # ignore missing pitchfork
     PITCHFORK=False
-from .pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
+from .pbp import encrypt_handler, decrypt_handler, sign_handler
 from .pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
 from .pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
 from .pbp import dh1_handler, dh2_handler, dh3_handler, mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
 from .pbp import hash_handler
+from .config import defaultbase
 from . import publickey
 
 def main():
