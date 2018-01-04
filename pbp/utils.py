@@ -123,7 +123,7 @@ def inputfd(infile):
 def outputfd(outfile):
     if hasattr(outfile, 'read'): return outfile
     if not outfile or outfile == '-':
-        return sys.stdout
+        return getattr(sys.stdout, 'buffer', sys.stdout)
     else:
         return open(outfile,'wb')
 
