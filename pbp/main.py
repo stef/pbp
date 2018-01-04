@@ -129,8 +129,8 @@ def main():
                                          max_recipients=int(opts.max_recipients),
                                          peer=opts.sender,
                                          basedir=opts.basedir)
-            except ValueError, e:
-                print e
+            except ValueError as e:
+                print(e)
                 sys.exit(1)
             else:
                 if sender:
