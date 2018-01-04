@@ -80,8 +80,8 @@ class ECDH:
         elif i<len(us):
             us[i].MPDH(self.addpeer(point), i+1, us, other)
         else:
-            half1=other[:len(other)/2]
-            half2=other[len(other)/2:]
+            half1=other[:len(other)//2]
+            half2=other[len(other)//2:]
             p=self.addpeer(point)
             if half1: half1[0].MPDH(p, 1, half1, half2 )
             if half2: half2[0].MPDH(p, 1, half2, half1 )
@@ -101,8 +101,8 @@ class ECDH:
 
     @staticmethod
     def mpecdh(peers):
-        half1=peers[:len(peers)/2]
-        half2=peers[len(peers)/2:]
+        half1=peers[:len(peers)//2]
+        half2=peers[len(peers)//2:]
         half1[1].MPDH(half1[0].public, 2, half1, half2)
         half2[1].MPDH(half2[0].public, 2, half2, half1)
         print('\n'.join(map(str,peers)))
