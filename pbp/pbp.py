@@ -382,7 +382,6 @@ def random_stream_handler(outfile = None, size = None):
             # infinite write
             outfd.write(nacl.crypto_stream(bsize))
     i = 0
-    size = long(size)
     while i <= size:
         if i+bsize <= size:
             outfd.write(nacl.crypto_stream(bsize))
