@@ -19,8 +19,8 @@
 
 import pysodium as nacl, os
 from SecureString import clearmem
-from utils import inc_nonce
-import publickey
+from .utils import inc_nonce
+from . import publickey
 BLOCK_SIZE = 1 << 15
 
 class ChainingContext(object):
@@ -28,12 +28,12 @@ class ChainingContext(object):
         self.me       = me
         self.peer     = peer
         self.basedir  = basedir
-        self.e_in     = ('\0' * nacl.crypto_scalarmult_curve25519_BYTES)
-        self.e_out    = ('\0' * nacl.crypto_scalarmult_curve25519_BYTES)
-        self.out_k    = ('\0' * nacl.crypto_secretbox_KEYBYTES)
-        self.in_k     = ('\0' * nacl.crypto_secretbox_KEYBYTES)
-        self.in_prev  = ('\0' * nacl.crypto_secretbox_KEYBYTES)
-        self.peer_pub = ('\0' * nacl.crypto_scalarmult_curve25519_BYTES)
+        self.e_in     = (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES)
+        self.e_out    = (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES)
+        self.out_k    = (b'\0' * nacl.crypto_secretbox_KEYBYTES)
+        self.in_k     = (b'\0' * nacl.crypto_secretbox_KEYBYTES)
+        self.in_prev  = (b'\0' * nacl.crypto_secretbox_KEYBYTES)
+        self.peer_pub = (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES)
         self.me_id = publickey.Identity(self.me, basedir=self.basedir)
         self.peer_id = publickey.Identity(self.peer, basedir=self.basedir)
 
@@ -50,7 +50,7 @@ class ChainingContext(object):
             return self
         if not self.me_id:
             self.me_id = publickey.Identity(self.me, basedir=self.basedir)
-        with open(keyfname,'r') as fd:
+        with open(keyfname,'rb') as fd:
             nonce = fd.read(nacl.crypto_box_NONCEBYTES)
             plain =  nacl.crypto_box_open(fd.read(), nonce, self.me_id.cp, self.me_id.cs)
         c=nacl.crypto_scalarmult_curve25519_BYTES
@@ -74,20 +74,20 @@ class ChainingContext(object):
             os.mkdir(keyfdir)
         fname='%s/%s' % (keyfdir, self.peer)
         nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
-        ctx=''.join((self.e_in,
-                     self.e_out,
-                     self.peer_pub,
-                     self.out_k,
-                     self.in_k,
-                     self.in_prev))
+        ctx=b''.join((self.e_in,
+                      self.e_out,
+                      self.peer_pub,
+                      self.out_k,
+                      self.in_k,
+                      self.in_prev))
         if not self.me_id:
             self.me_id = publickey.Identity(self.me, basedir=self.basedir)
-        with open(fname,'w') as fd:
+        with open(fname,'wb') as fd:
             fd.write(nonce)
             fd.write(nacl.crypto_box(ctx, nonce, self.me_id.cp, self.me_id.cs))
 
     def encrypt(self,plain):
-        if self.out_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
+        if self.out_k == (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             # encrypt using public key
             nonce = nacl.randombytes(nacl.crypto_box_NONCEBYTES)
             cipher= nacl.crypto_box(plain, nonce, self.peer_id.cp, self.me_id.cs)
@@ -100,7 +100,7 @@ class ChainingContext(object):
 
     def send(self,plain):
         # update context
-        if self.peer_pub != ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
+        if self.peer_pub != (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             # calculate a new incoming key, and finish that DH, start a new for
             # outgoing keys.
             # only do this directly after receiving a packet, not on later sends
@@ -109,12 +109,12 @@ class ChainingContext(object):
             self.e_in = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
             self.in_prev = self.in_k
             self.in_k = nacl.crypto_scalarmult_curve25519(self.e_in, self.peer_pub)
-            self.peer_pub = ('\0' * nacl.crypto_scalarmult_curve25519_BYTES)
+            self.peer_pub = (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES)
 
             # generate e_out
             self.e_out = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
 
-        elif self.out_k == ('\0' * nacl.crypto_secretbox_KEYBYTES):
+        elif self.out_k == (b'\0' * nacl.crypto_secretbox_KEYBYTES):
             # only for the very first packet necessary
             # we explicitly need to generate e_out
             self.e_out = nacl.randombytes(nacl.crypto_scalarmult_curve25519_BYTES)
@@ -127,15 +127,15 @@ class ChainingContext(object):
         # compose packet
         dh1 = nacl.crypto_scalarmult_curve25519_base(self.e_out)
         dh2 = (nacl.crypto_scalarmult_curve25519_base(self.e_in)
-               if self.e_in != ('\0' * nacl.crypto_scalarmult_curve25519_BYTES)
-               else ('\0' * nacl.crypto_scalarmult_curve25519_BYTES))
-        plain = ''.join((dh1, dh2, plain))
+               if self.e_in != (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES)
+               else (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES))
+        plain = b''.join((dh1, dh2, plain))
 
         # encrypt the whole packet
         return self.encrypt(plain)
 
     def decrypt(self, cipher, nonce):
-        if self.in_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
+        if self.in_k == (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             # use pk crypto to decrypt the packet
             return nacl.crypto_box_open(cipher, nonce, self.peer_id.cp, self.me_id.cs)
         else:
@@ -152,7 +152,7 @@ class ChainingContext(object):
 
         # update context
         self.peer_pub=plain[:nacl.crypto_scalarmult_curve25519_BYTES]
-        if self.e_out != ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
+        if self.e_out != (b'\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             dh2=plain[nacl.crypto_scalarmult_curve25519_BYTES:nacl.crypto_scalarmult_curve25519_BYTES*2]
             self.out_k = nacl.crypto_scalarmult_curve25519(self.e_out, dh2)
         return plain[nacl.crypto_scalarmult_curve25519_BYTES*2:]
@@ -189,7 +189,7 @@ class ChainingContext(object):
     def buffered_decrypt(self, infd,outfd):
         self.load()
         blocklen=BLOCK_SIZE+(nacl.crypto_scalarmult_curve25519_BYTES*2)
-        if self.out_k == ('\0' * nacl.crypto_scalarmult_curve25519_BYTES):
+        if self.out_k == ('b\0' * nacl.crypto_scalarmult_curve25519_BYTES):
             nonce = infd.read(nacl.crypto_box_NONCEBYTES)
         else:
             nonce = infd.read(nacl.crypto_secretbox_NONCEBYTES)

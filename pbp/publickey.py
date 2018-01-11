@@ -1,12 +1,15 @@
 #!/usr/bin/env python2
 import pysodium as nacl, scrypt # external dependencies
-import os, stat,  getpass, datetime, binascii
-from itertools import imap
-from utils import split_by_n, b85encode, b85decode
+import os, sys, stat,  getpass, datetime, binascii
+from .utils import split_by_n, b85encode, b85decode
+from .config import defaultbase, scrypt_salt
 from SecureString import clearmem
-import pbp
+try:
+    from itertools import imap as map
+except ImportError:
+    pass
 
-SIGPREFIX = '\nnacl-'
+SIGPREFIX = b'\nnacl-'
 BLOCK_SIZE = 1 << 15
 
 class Registry(type):
@@ -26,7 +29,7 @@ class Identity(object):
         self.name=name
         self.publicOnly=publicOnly
         self.basedir=os.path.expandvars(
-            os.path.expanduser(basedir or pbp.defaultbase))
+            os.path.expanduser(basedir or defaultbase))
 
         if create:
             if not os.path.exists(get_pk_dir(self.basedir)) or not os.path.exists(get_sk_dir(self.basedir)):
@@ -42,12 +45,14 @@ class Identity(object):
             return getattr(self, name)
 
     def keyid(self):
-        res = nacl.crypto_generichash(''.join((self.created.isoformat(),
-                                                self.valid.isoformat(),
-                                                self.mp,
-                                                self.sp,
-                                                self.cp
-                                                )))[:16]
+        joined_bytestring = b"".join((
+            self.created.isoformat().encode('utf-8'),
+            self.valid.isoformat().encode('utf-8'),
+            self.mp,
+            self.sp,
+            self.cp
+        ))
+        res = nacl.crypto_generichash(joined_bytestring)[:16]
         return ' '.join(split_by_n(binascii.b2a_hex(res).decode("ascii"), 4))
 
     def create(self):
@@ -84,7 +89,7 @@ class Identity(object):
 
     def loadkey(self, type):
         if type in ['mp','cp','sp', 'created', 'valid']:
-            with open(get_pk_filename(self.basedir, self.name), 'r') as fd:
+            with open(get_pk_filename(self.basedir, self.name), 'rb') as fd:
                 tmp=fd.read()
             mk=tmp[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
             tmp = nacl.crypto_sign_open(tmp, mk)
@@ -94,8 +99,8 @@ class Identity(object):
             i+=nacl.crypto_sign_PUBLICKEYBYTES
             if type == 'cp': self.cp=tmp[i:i+nacl.crypto_box_PUBLICKEYBYTES]
             i+=nacl.crypto_box_PUBLICKEYBYTES
-            self.created = parse_isodatetime(tmp[i:i + 32])
-            self.valid = parse_isodatetime(tmp[i + 32:i + 64])
+            self.created = parse_isodatetime(tmp[i:i + 32].decode('utf-8'))
+            self.valid = parse_isodatetime(tmp[i + 32:i + 64].decode('utf-8'))
 
         elif type in ['cs', 'ss']:
             tmp = get_sk_filename(self.basedir, self.name)
@@ -114,24 +119,26 @@ class Identity(object):
                 raise ValueError("missing key %s" % self.name)
 
     def decrypt_with_user_pw(self, filename, pw_for):
-        with file(filename) as fd:
+        with open(filename, 'rb') as fd:
             nonce = fd.read(nacl.crypto_secretbox_NONCEBYTES)
             prompt = 'Passphrase for decrypting {0} for {1}: '.format(pw_for, self.name)
-            k = scrypt.hash(getpass.getpass(prompt), pbp.scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
+            k = scrypt.hash(getpass.getpass(prompt), scrypt_salt)[:nacl.crypto_secretbox_KEYBYTES]
             return nacl.crypto_secretbox_open(fd.read(), nonce, k)
 
     def savepublickeys(self):
-        with open(get_pk_filename(self.basedir, self.name), 'w') as fd:
+        with open(get_pk_filename(self.basedir, self.name), 'wb') as fd:
             dates='{:<32}{:<32}'.format(self.created.isoformat(), self.valid.isoformat())
-            fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+dates+self.name, self.ms))
+            name = self.name.encode('utf-8')
+            datesb = dates.encode('utf-8')
+            fd.write(nacl.crypto_sign(self.mp+self.sp+self.cp+datesb+name, self.ms))
 
     def savesecretekey(self, ext, key):
         fname = get_sk_filename(self.basedir, self.name, ext)
-        k = pbp.getkey(nacl.crypto_secretbox_KEYBYTES,
-                       empty=True,
-                       text='Master' if ext == 'mk' else 'Subkey')
+        k = getkey(nacl.crypto_secretbox_KEYBYTES,
+                   empty=True,
+                   text='Master' if ext == 'mk' else 'Subkey')
         nonce = nacl.randombytes(nacl.crypto_secretbox_NONCEBYTES)
-        with open(fname,'w') as fd:
+        with open(fname,'wb') as fd:
             fd.write(nonce)
             fd.write(nacl.crypto_secretbox(key, nonce, k))
 
@@ -161,7 +168,8 @@ class Identity(object):
     def decrypt(self, pkt):
         peer, key = self.keydecrypt(pkt[1])
         if key:
-            return peer, nacl.crypto_secretbox_open(pkt[2], pkt[0], key)
+            message = nacl.crypto_secretbox_open(pkt[2], pkt[0], key)
+            return peer, message.decode('utf-8')
 
     def sign(self, msg, master=False):
         signing_key = self.ms if master else self.ss
@@ -199,11 +207,11 @@ class Identity(object):
         #print 'clearing'
         #self.clear()
         if armor:
-            sig = "%s%s" % (SIGPREFIX, b85encode(sig))
+            sig = b"".join((SIGPREFIX, b85encode(sig)))
         outfd.write(sig)
 
 def verify(msg, master=False, basedir=None):
-    for keys in get_public_keys(basedir=basedir or pbp.defaultbase):
+    for keys in get_public_keys(basedir=basedir or defaultbase):
         try:
             verifying_key = keys.mp if master else keys.sp
             return keys.name, nacl.crypto_sign_open(msg, verifying_key)
@@ -218,19 +226,19 @@ def buffered_verify(infd, outfd, basedir, self = None):
         # sigs spanning block boundaries
         if len(block)==(BLOCK_SIZE/2):
             next=infd.read(int(BLOCK_SIZE/2))
-        else: next=''
+        else: next=b''
 
-        fullblock = "%s%s" % (block, next)
+        fullblock = b"".join((block, next))
         sigoffset = fullblock.rfind(SIGPREFIX)
 
         if 0 <= sigoffset <= (BLOCK_SIZE/2):
             sig = b85decode(fullblock[sigoffset+len(SIGPREFIX):sigoffset+len(SIGPREFIX)+80])
             block = block[:sigoffset]
-            next = ''
+            next = b''
         elif len(fullblock)<(BLOCK_SIZE/2)+nacl.crypto_sign_BYTES:
             sig = fullblock[-nacl.crypto_sign_BYTES:]
             block = fullblock[:-nacl.crypto_sign_BYTES]
-            next = ''
+            next = b''
         state = nacl.crypto_generichash_update(state, block)
         if outfd: outfd.write(block)
         block = next
@@ -246,24 +254,44 @@ def buffered_verify(infd, outfd, basedir, self = None):
     if sender and hashsum == hashsum1:
         return sender
 
+def getkey(size, pwd='', empty=False, text=''):
+    # queries the user twice for a passphrase if neccessary, and
+    # returns a scrypted key of length size
+    # allows empty passphrases if empty == True
+    # 'text' will be prepended to the password query
+    # will not query for a password if pwd != ''
+    #clearpwd = (pwd.strip()=='')
+    pwd2 = not pwd
+    if not pwd:
+        while pwd != pwd2 or (not empty and not pwd.strip()):
+            pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
+            if pwd.strip():
+                pwd2 = getpass.getpass('2/2 %s Repeat passphrase: ' % text)
+    #if isinstance(pwd2, str):
+    #   clearmem(pwd2)
+    if pwd.strip():
+        key = scrypt.hash(pwd, scrypt_salt)[:size]
+        #if clearpwd: clearmem(pwd)
+        return key
+
 def get_public_keys(basedir=None):
-    if not basedir: basedir=pbp.defaultbase
+    if not basedir: basedir=defaultbase
     basedir=os.path.expandvars(os.path.expanduser(basedir))
     pk_dir = get_pk_dir(basedir)
     if not os.path.exists(pk_dir):
         return
-    for root, ext in imap(os.path.splitext, os.listdir(pk_dir)):
+    for root, ext in map(os.path.splitext, os.listdir(pk_dir)):
         if ext == '.pk':
             yield Identity(root, publicOnly=True, basedir=basedir)
 
 def get_secret_keys(basedir=None):
-    if not basedir: basedir=pbp.defaultbase
+    if not basedir: basedir=defaultbase
     basedir=os.path.expandvars(os.path.expanduser(basedir))
     seen = set()
     sk_dir = get_sk_dir(basedir)
     if not os.path.exists(sk_dir):
         return
-    for root, ext in imap(os.path.splitext, os.listdir(sk_dir)):
+    for root, ext in map(os.path.splitext, os.listdir(sk_dir)):
         if ext in ('.mk', '.sk') and root not in seen:
             seen.add(root)
             yield Identity(root, basedir=basedir)

@@ -1,37 +1,16 @@
 #!/usr/bin/env python2
+import os
 import pysodium as nacl, scrypt # external dependencies
 import getpass, sys, struct
-from utils import b85encode, b85decode, lockmem, inputfd, outputfd, inc_nonce
 from SecureString import clearmem
-import chaining, publickey, ecdh
-import os
+from . import chaining, publickey, ecdh
+from .utils import b85encode, b85decode, lockmem, inputfd, outputfd, inc_nonce
+from .publickey import getkey
+from .config import scrypt_salt
 
 ASYM_CIPHER = 5
 BLOCK_CIPHER = 23
 BLOCK_SIZE = 32*1024
-
-defaultbase='~/.pbp'
-scrypt_salt = 'qa~t](84z<1t<1oz:ik.@IRNyhG=8q(on9}4#!/_h#a7wqK{Nt$T?W>,mt8NqYq&6U<GB1$,<$j>,rSYI2GRDd:Bcm'
-
-def getkey(size, pwd='', empty=False, text=''):
-    # queries the user twice for a passphrase if neccessary, and
-    # returns a scrypted key of length size
-    # allows empty passphrases if empty == True
-    # 'text' will be prepended to the password query
-    # will not query for a password if pwd != ''
-    #clearpwd = (pwd.strip()=='')
-    pwd2 = not pwd
-    if not pwd:
-        while pwd != pwd2 or (not empty and not pwd.strip()):
-            pwd = getpass.getpass('1/2 %s Passphrase: ' % text)
-            if pwd.strip():
-                pwd2 = getpass.getpass('2/2 %s Repeat passphrase: ' % text)
-    #if isinstance(pwd2, str):
-    #   clearmem(pwd2)
-    if pwd.strip():
-        key = scrypt.hash(pwd, scrypt_salt)[:size]
-        #if clearpwd: clearmem(pwd)
-        return key
 
 def encrypt(msg, pwd=None, k=None, nonce=None):
     # encrypts a message symmetrically using crypto_secretbox
@@ -130,7 +109,7 @@ def encrypt_handler(infile=None, outfile=None, recipient=None, self=None, basedi
     key=None
 
     if fd != sys.stdin: fd.close()
-    if outfd != sys.stdout and isinstance(outfd,file): outfd.close()
+    if outfd != sys.stdout: outfd.close()
 
 def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipients = 20, basedir=None):
     # provides a high level function to do decryption of files
@@ -192,7 +171,7 @@ def decrypt_handler(infile=None, outfile=None, self=None, peer=None, max_recipie
         key = None
 
     if fd != sys.stdin: fd.close()
-    if outfd != sys.stdout and type(outfd) == file: outfd.close()
+    if outfd != sys.stdout: outfd.close()
     return sender
 
 def hash_handler(infile=None, k='', outlen=16):
@@ -223,7 +202,7 @@ def sign_handler(infile=None, outfile=None, self=None, basedir=None, armor=False
     if (not outfile and armor) or outfile == '-' or (not infile or infile == '-'):
         outfd = sys.stdout
     else:
-        outfd = open(outfile or infile+'.sig','w')
+        outfd = open(outfile or infile+'.sig','wb')
 
     publickey.Identity(self, basedir=basedir).buffered_sign(fd, outfd, armor)
 
@@ -253,9 +232,9 @@ def keysign_handler(name=None, self=None, basedir=None):
     # self the signers name
     # basedir the root for the keystore
     fname = publickey.get_pk_filename(basedir, name)
-    with open(fname,'r') as fd:
+    with open(fname,'rb') as fd:
         data = fd.read()
-    with open(fname+'.sig','a') as fd:
+    with open(fname+'.sig','ab') as fd:
         me = publickey.Identity(self, basedir=basedir)
         sig = me.sign(data, master=True)
         if sig:
@@ -268,10 +247,10 @@ def keycheck_handler(name=None, basedir=None):
     # name is the key to be verified
     # basedir the root for the keystore
     fname = publickey.get_pk_filename(basedir, name)
-    with open(fname,'r') as fd:
+    with open(fname,'rb') as fd:
         pk = fd.read()
     sigs=[]
-    with open(fname+".sig",'r') as fd:
+    with open(fname+".sig",'rb') as fd:
         sigdat=fd.read()
     i=0
     csb = nacl.crypto_sign_BYTES
@@ -288,7 +267,8 @@ def export_handler(self, basedir=None):
     # exports key self from basedir, outputs to stdout, key is ascii armored
     keys = publickey.Identity(self, basedir=basedir)
     dates='{:<32}{:<32}'.format(keys.created.isoformat(), keys.valid.isoformat())
-    pkt = keys.sign(keys.mp+keys.sp+keys.cp+dates+keys.name, master=True)
+    datesb = dates.encode('utf-8')
+    pkt = keys.sign(keys.mp+keys.sp+keys.cp+datesb+keys.name.encode('utf-8'), master=True)
     keys.clear()
     return b85encode(pkt, True)
 
@@ -297,20 +277,20 @@ def import_handler(infile=None, basedir=None):
     if not infile:
         b85 = sys.stdin.readline().strip()
     else:
-        with file(infile) as fd:
+        with open(infile, 'r') as fd:
             b85 = fd.readline().strip()
     pkt = b85decode(b85)
     mp = pkt[nacl.crypto_sign_BYTES:nacl.crypto_sign_BYTES+nacl.crypto_sign_PUBLICKEYBYTES]
     keys = nacl.crypto_sign_open(pkt, mp)
     if not keys:
         return
-    name = keys[(nacl.crypto_sign_PUBLICKEYBYTES*3)+2*32:]
+    name = keys[(nacl.crypto_sign_PUBLICKEYBYTES*3)+2*32:].decode('utf-8')
     kfile = publickey.get_pk_filename(basedir, name)
     if os.path.exists(kfile):
         bkp = kfile+'.old'
         print >>sys.stderr, "backing up existing key to %s" % bkp
         os.rename(kfile,bkp)
-    with open(kfile, 'w') as fd:
+    with open(kfile, 'wb') as fd:
         fd.write(pkt)
     # TODO check if key exists, then ask for confirmation of pk overwrite
     return name
@@ -382,7 +362,6 @@ def random_stream_handler(outfile = None, size = None):
             # infinite write
             outfd.write(nacl.crypto_stream(bsize))
     i = 0
-    size = long(size)
     while i <= size:
         if i+bsize <= size:
             outfd.write(nacl.crypto_stream(bsize))

@@ -1,18 +1,21 @@
 #!/usr/bin/env python2
+from __future__ import print_function
 import argparse, os, sys, datetime, binascii
-from utils import b85encode, lockmem, split_by_n
+from .utils import b85encode, lockmem, split_by_n
 from SecureString import clearmem
-import publickey, pysodium as nacl
+import pysodium as nacl
 try:
     import pitchfork
     PITCHFORK=True
 except: # ignore missing pitchfork
     PITCHFORK=False
-from pbp import defaultbase, encrypt_handler, decrypt_handler, sign_handler
-from pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
-from pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
-from pbp import dh1_handler, dh2_handler, dh3_handler, mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
-from pbp import hash_handler
+from .pbp import encrypt_handler, decrypt_handler, sign_handler
+from .pbp import verify_handler, keysign_handler, keycheck_handler, export_handler
+from .pbp import import_handler, chaining_encrypt_handler, chaining_decrypt_handler
+from .pbp import dh1_handler, dh2_handler, dh3_handler, mpecdh_start_handler, mpecdh_end_handler, random_stream_handler
+from .pbp import hash_handler
+from .config import defaultbase
+from . import publickey
 
 def main():
     # main command line handler for pbp
@@ -60,9 +63,9 @@ def main():
     opts.basedir=os.path.expandvars( os.path.expanduser(opts.basedir))
 
     if os.path.exists(opts.basedir):
-        mode = os.stat(opts.basedir).st_mode & 0777
-        if mode not in [0700, 0600]:
-            print >>sys.stderr, '[pbp] ABORT: unsafe permissions %s on basedir %s' % (oct(mode), opts.basedir)
+        mode = os.stat(opts.basedir).st_mode & 0o777
+        if mode not in [0o700, 0o600]:
+            print('[pbp] ABORT: unsafe permissions %s on basedir %s' % (oct(mode), opts.basedir), file=sys.stderr)
 
     # Generate key
     if opts.action=='g':
@@ -79,17 +82,17 @@ def main():
                 pitchfork.print_keys(keys)
                 pitchfork.storage_stats(stats, keys)
             else:
-                print 'none'
+                print('none')
         else:
             for i in publickey.get_public_keys(opts.basedir):
-                print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
-                       else 'INVALID'), i.keyid(), i.name
+                print(('valid' if i.valid > datetime.datetime.utcnow() > i.created
+                       else 'INVALID'), i.keyid(), i.name)
 
     # list secret keys
     elif opts.action=='L':
         for i in publickey.get_secret_keys(opts.basedir):
-            print ('valid' if i.valid > datetime.datetime.utcnow() > i.created
-                   else 'INVALID'), i.keyid(), i.name
+            print(('valid' if i.valid > datetime.datetime.utcnow() > i.created
+                   else 'INVALID'), i.keyid(), i.name)
 
     # encrypt
     elif opts.action=='c':
@@ -100,7 +103,7 @@ def main():
                                    infile=opts.infile,
                                    outfile=opts.outfile)
             if res:
-                print >>sys.stderr, b85encode(res)
+                print(b85encode(res), file=sys.stderr)
             return
         if opts.recipient or opts.self:
             ensure_self_specified(opts)
@@ -127,12 +130,12 @@ def main():
                                          max_recipients=int(opts.max_recipients),
                                          peer=opts.sender,
                                          basedir=opts.basedir)
-            except ValueError, e:
-                print e
+            except ValueError as e:
+                print(e)
                 sys.exit(1)
             else:
                 if sender:
-                    print >>sys.stderr, '[pbp] good message from', sender
+                    print('[pbp] good message from', sender, file=sys.stderr)
 
     # sign
     elif opts.action=='s':
@@ -143,7 +146,7 @@ def main():
                                infile=opts.infile,
                                outfile=opts.outfile)
             if res:
-                print >>sys.stderr, b85encode(res[0]), b85encode(res[1])
+                print(b85encode(res[0]), b85encode(res[1]), file=sys.stderr)
             return
         ensure_self_specified(opts)
         sign_handler(infile=opts.infile,
@@ -167,9 +170,9 @@ def main():
                                  outfile=opts.outfile,
                                  basedir=opts.basedir)
         if res:
-            print >>sys.stderr, "[pbp] good message from", res
+            print("[pbp] good message from", res, file=sys.stderr)
         else:
-            print >>sys.stderr, '[pbp] VERIFICATION FAILED'
+            print('[pbp] VERIFICATION FAILED', file=sys.stderr)
 
     # key sign
     elif opts.action=='m':
@@ -178,8 +181,8 @@ def main():
         sig = keysign_handler(name=opts.name,
                               self=opts.self,
                               basedir=opts.basedir)
-        if sig: print "[pbp] key signed in", sig
-        else: print >>sys.stderr, '[pbp] SIGNATURE FAILED'
+        if sig: print("[pbp] key signed in", sig)
+        else: print('[pbp] SIGNATURE FAILED', file=sys.stderr)
 
     # lists signatures owners on public keys
     elif opts.action=='C':
@@ -187,23 +190,23 @@ def main():
         sigs = keycheck_handler(name=opts.name,
                          basedir=opts.basedir)
         if sigs:
-            print >>sys.stderr, '[pbp] good signatures on', opts.name, 'from', ', '.join(sigs)
-        else: print >>sys.stderr, '[pbp] NO GOOD SIGS FOUND'
+            print('[pbp] good signatures on', opts.name, 'from', ', '.join(sigs), file=sys.stderr)
+        else: print('[pbp] NO GOOD SIGS FOUND', file=sys.stderr)
 
     # export public key
     elif opts.action=='x':
         ensure_self_specified(opts)
         k = export_handler(opts.self,
                            basedir=opts.basedir)
-        print k
+        print(k)
     # import public key
     elif opts.action=='i':
         n = import_handler(infile=opts.infile,
                            basedir=opts.basedir)
         if n:
-            print '[pbp] Success: imported public keys for', n
+            print('[pbp] Success: imported public keys for', n)
         else:
-            print '[pbp] IMPORT FAILED'
+            print('[pbp] IMPORT FAILED')
 
     # forward encrypt
     elif opts.action=='e':
@@ -237,8 +240,8 @@ def main():
         else:
             params = dh1_handler()
         if params:
-            print "[pbp] secret exponent", b85encode(params[0])
-            print "[pbp] public component", b85encode(params[1])
+            print("[pbp] secret exponent", b85encode(params[0]))
+            print("[pbp] public component", b85encode(params[1]))
             clearmem(params[0])
     # receive ECDH
     elif opts.action=='d2':
@@ -250,8 +253,8 @@ def main():
         else:
             params = dh2_handler(binascii.unhexlify(opts.dh_param))
         if params:
-            print "[pbp] shared secret", b85encode(params[1])
-            print "[pbp] public component", b85encode(params[0])
+            print("[pbp] shared secret", b85encode(params[1]))
+            print("[pbp] public component", b85encode(params[0]))
             clearmem(params[0])
             clearmem(params[1])
     # finish ECDH
@@ -264,7 +267,7 @@ def main():
         else:
             sec = dh3_handler(binascii.unhexlify(opts.dh_param), binascii.unhexlify(opts.dh_exp))
         if sec:
-            print "[pbp] shared secret", b85encode(sec)
+            print("[pbp] shared secret", b85encode(sec))
             clearmem(sec)
     # start MPECDH
     elif opts.action=='ds':
@@ -273,7 +276,7 @@ def main():
         ensure_name_specified(opts)
         sec = mpecdh_start_handler(opts.name, opts.dh_peers, opts.self, opts.infile, opts.outfile, opts.basedir)
         if sec:
-            print >>sys.stderr, "[pbp] pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6))
+            print("[pbp] pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6)), file=sys.stderr)
             clearmem(sec)
             sec = None
 
@@ -283,7 +286,7 @@ def main():
         ensure_name_specified(opts)
         sec = mpecdh_end_handler(opts.name, opts.self, opts.infile, opts.outfile, opts.basedir)
         if sec:
-            print >>sys.stderr, "[pbp] pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6))
+            print("[pbp] pushed shared secret, hash", b85encode(nacl.crypto_generichash(sec, outlen=6)), file=sys.stderr)
             clearmem(sec)
             sec = None
 
@@ -298,7 +301,7 @@ def main():
     elif opts.action=='h':
         hsum = hash_handler(opts.infile, k=load_key(opts.key), outlen=int(opts.size or '16'))
         if hsum:
-            print ' '.join(split_by_n(binascii.hexlify(hsum),4))
+            print(' '.join(split_by_n(binascii.hexlify(hsum),4)))
 
 def load_key(key):
     # asserts that self is specified
@@ -374,7 +377,7 @@ def ensure_size_good(opts):
 
 def die(msg):
     # complains and dies
-    print >>sys.stderr, msg
+    print(msg, file=sys.stderr)
     sys.exit(1)
 
 if __name__ == '__main__':
