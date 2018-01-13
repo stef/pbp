@@ -3,6 +3,7 @@
 
 from tempfile import mkdtemp
 from shutil import rmtree
+from array import array
 import unittest, pbp, os, re
 from pbp import pbp, publickey, chaining, ecdh
 
@@ -78,7 +79,7 @@ class TestPBP(unittest.TestCase):
     def test_sign_fail(self):
         self_key = self.gen_key()
         signed = self_key.sign(MESSAGE.encode('utf-8'))
-        malformed = ''.join(chr(c ^ 42) for c in bytearray(signed))
+        malformed = array('B', [c ^ 42 for c in bytearray(signed)]).tostring()
         self.assertTrue(publickey.verify(malformed, basedir=self.pbp_path) is None)
 
     def test_sign_no_key(self):
