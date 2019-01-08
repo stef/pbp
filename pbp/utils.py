@@ -130,7 +130,7 @@ def inc_nonce(nonce):
     i=0
     nonce = [x for x in nonce]
     while(i<nacl.crypto_box_NONCEBYTES):
-        nonce[i]=chr(ord(nonce[i])+1)
+        nonce[i]=chr((ord(nonce[i])+1) % 256)
         if nonce[i]!=0: break
         i+=1
     return ''.join(nonce)
