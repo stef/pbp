@@ -3,6 +3,7 @@
 
 from tempfile import mkdtemp
 from shutil import rmtree
+from array import array
 import unittest, pbp, os, re
 from pbp import pbp, publickey, chaining, ecdh
 
@@ -43,27 +44,27 @@ class TestPBP(unittest.TestCase):
         # because identity loads keys dynamicly
 
     def test_encrypt_sym_pwprompt_fail(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
+        encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=OTHER_PW)
         self.assertTrue(pbp.decrypt(encrypted, pwd='asdf') is None)
 
     def test_encrypt_sym_fail(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=OTHER_PW)
+        encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=OTHER_PW)
         self.assertTrue(pbp.decrypt(encrypted, pwd=PASSWORD) is None)
 
     def test_encrypt_sym_pwprompt(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
+        encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=PASSWORD)
         decrypted = pbp.decrypt(encrypted)
-        self.assertEquals(decrypted, MESSAGE)
+        self.assertEquals(decrypted, MESSAGE.encode('utf-8'))
 
     def test_encrypt_sym(self):
-        encrypted = pbp.encrypt(MESSAGE, pwd=PASSWORD)
+        encrypted = pbp.encrypt(MESSAGE.encode('utf-8'), pwd=PASSWORD)
         decrypted = pbp.decrypt(encrypted, pwd=PASSWORD)
-        self.assertEquals(decrypted, MESSAGE)
+        self.assertEquals(decrypted, MESSAGE.encode('utf-8'))
 
     def test_encrypt_recipient(self):
         self_key = self.gen_key()
         rcpt_key = self.gen_key()
-        encrypted = self_key.encrypt(MESSAGE, recipients=[rcpt_key])
+        encrypted = self_key.encrypt(MESSAGE.encode('utf-8'), recipients=[rcpt_key])
         for key in (rcpt_key, self_key):
             decrypted = rcpt_key.decrypt(encrypted)
             self.assertEquals(decrypted[1], MESSAGE)
@@ -72,25 +73,25 @@ class TestPBP(unittest.TestCase):
         self_key = self.gen_key()
         rcpt_key = self.gen_key()
         other_key = self.gen_key()
-        encrypted = self_key.encrypt(MESSAGE, recipients=[rcpt_key])
+        encrypted = self_key.encrypt(MESSAGE.encode('utf-8'), recipients=[rcpt_key])
         self.assertTrue(other_key.decrypt(encrypted) is None)
 
     def test_sign_fail(self):
         self_key = self.gen_key()
-        signed = self_key.sign(MESSAGE)
-        malformed = ''.join(chr(ord(c) ^ 42) for c in signed)
+        signed = self_key.sign(MESSAGE.encode('utf-8'))
+        malformed = array('B', [c ^ 42 for c in bytearray(signed)]).tostring()
         self.assertTrue(publickey.verify(malformed, basedir=self.pbp_path) is None)
 
     def test_sign_no_key(self):
         self_key = self.gen_key()
-        signed = self_key.sign(MESSAGE)
+        signed = self_key.sign(MESSAGE.encode('utf-8'))
         rmtree(self.pbp_path)
         self.gen_key()
         self.assertTrue(publickey.verify(signed, basedir=self.pbp_path) is None)
 
     def test_sign(self):
         self_key = self.gen_key()
-        self.assertTrue(publickey.verify(self_key.sign(MESSAGE),
+        self.assertTrue(publickey.verify(self_key.sign(MESSAGE.encode('utf-8')),
             basedir=self.pbp_path) is not None)
 
     def test_sign_master(self):
@@ -136,7 +137,7 @@ class TestPBP(unittest.TestCase):
 
         sender, receiver = 'alice', 'bob'
 
-        for i in xrange(10):
+        for i in range(10):
             with open(msg, 'w') as fd:
                 fd.write(str(i) * 1080)
 
@@ -166,7 +167,7 @@ class TestPBP(unittest.TestCase):
         sender, receiver = 'alice', 'bob'
 
         # do some proper exchange
-        for i in xrange(5):
+        for i in range(5):
             with open(msg, 'w') as fd:
                 fd.write(str(i) * 1080)
 
@@ -249,62 +250,62 @@ class TestPBP(unittest.TestCase):
         alice.load()
         bob.load()
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = bob.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
+        c,n = bob.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = bob.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
+        c,n = bob.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = bob.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
+        c,n = bob.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
 
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
-        c,n = bob.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
+        c,n = bob.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
 
-        c,n = alice.send('howdy')
+        c,n = alice.send('howdy'.encode('utf-8'))
         # lose packet
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
         # cross send and loose packets
-        c,n = bob.send('howdy')
-        c,n = bob.send('howdy')
+        c,n = bob.send('howdy'.encode('utf-8'))
+        c,n = bob.send('howdy'.encode('utf-8'))
         # crossing packets
-        c1,n1 = alice.send('howdy')
-        self.assertEquals('howdy', alice.receive(c,n))
-        self.assertEquals('howdy', bob.receive(c1,n1))
+        c1,n1 = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c,n))
+        self.assertEquals(b'howdy', bob.receive(c1,n1))
 
         # continue normal sending
-        c,n = alice.send('howdy')
-        self.assertEquals('howdy', bob.receive(c,n))
+        c,n = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob.receive(c,n))
 
         # out of bound sending
-        c,n = bob.send('howdy')
-        c1,n1 = bob.send('howdy')
+        c,n = bob.send('howdy'.encode('utf-8'))
+        c1,n1 = bob.send('howdy'.encode('utf-8'))
         # crossing packets
-        c2,n2 = alice.send('howdy')
-        self.assertEquals('howdy', alice.receive(c1,n1))
-        self.assertEquals('howdy', alice.receive(c,n))
-        self.assertEquals('howdy', bob.receive(c2,n2))
+        c2,n2 = alice.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice.receive(c1,n1))
+        self.assertEquals(b'howdy', alice.receive(c,n))
+        self.assertEquals(b'howdy', bob.receive(c2,n2))
 
         # continue normal sending
-        c,n = alice.send('ok')
-        self.assertEquals('ok', bob.receive(c,n))
+        c,n = alice.send('ok'.encode('utf-8'))
+        self.assertEquals(b'ok', bob.receive(c,n))
 
         bob.save()
         alice.save()
@@ -315,11 +316,11 @@ class TestPBP(unittest.TestCase):
         alice1.load()
         bob1.load()
 
-        c,n = alice1.send('howdy')
-        self.assertEquals('howdy', bob1.receive(c,n))
+        c,n = alice1.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', bob1.receive(c,n))
 
-        c,n = bob1.send('howdy')
-        self.assertEquals('howdy', alice1.receive(c,n))
+        c,n = bob1.send('howdy'.encode('utf-8'))
+        self.assertEquals(b'howdy', alice1.receive(c,n))
 
     def test_crypt(self):
         publickey.Identity('alice', basedir=self.pbp_path, create=True)
@@ -384,9 +385,9 @@ class TestPBP(unittest.TestCase):
         with open(msg, 'w') as fd:
             fd.write('0' * 1080)
         h=pbp.hash_handler(infile=msg, k='', outlen=16)
-        self.assertEquals(h, '%\x80\x1e\xc8\x0c\x17\x89Z_I\x15\x19.Z P')
-        h=pbp.hash_handler(infile=msg, k='some random "key" with 32 byte output', outlen=32)
-        self.assertEquals(h,"\xae\xf5\x84\x9cr\xf5D1D\x9e}&\x18\xa5Q&LMw\xe3\xa08y\xbf~'\xf5\x0b\x9a\xe4\xd9\x97")
+        self.assertEquals(h, b'%\x80\x1e\xc8\x0c\x17\x89Z_I\x15\x19.Z P')
+        h=pbp.hash_handler(infile=msg, k='some random "key" with 32 byte output'.encode('utf-8'), outlen=32)
+        self.assertEquals(h,b"\xae\xf5\x84\x9cr\xf5D1D\x9e}&\x18\xa5Q&LMw\xe3\xa08y\xbf~'\xf5\x0b\x9a\xe4\xd9\x97")
 
 
     def tearDown(self):

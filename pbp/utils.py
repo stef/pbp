@@ -31,7 +31,7 @@ def b85encode(text, pad=False):
     l = len(text)
     r = l % 4
     if r:
-        text += '\0' * (4 - r)
+        text += b'\0' * (4 - r)
     longs = len(text) >> 2
     out = []
     words = struct.unpack('>%dL' % (longs), text)
@@ -58,7 +58,7 @@ def b85encode(text, pad=False):
     olen = l % 4
     if olen:
         olen += 1
-    olen += l / 4 * 5
+    olen += l // 4 * 5
     return out[:olen]
 
 def b85decode(text):
@@ -94,8 +94,9 @@ def b85decode(text):
 
     # Unpad previously zero padded input, if any
     unpadlen = len(out)
+    byteout = bytearray(out)
     for i in reversed(range(unpadlen)):
-        if out[i] != '\0' and i < unpadlen:
+        if byteout[i] != 0 and i < unpadlen:
             unpadlen = i + 1
             break
 
@@ -115,20 +116,20 @@ def lockmem():
 def inputfd(infile):
     if hasattr(infile, 'read'): return infile
     if not infile or infile == '-':
-        return sys.stdin
+        return getattr(sys.stdin, 'buffer', sys.stdin)
     else:
-        return open(infile,'r')
+        return open(infile,'rb')
 
 def outputfd(outfile):
     if hasattr(outfile, 'read'): return outfile
     if not outfile or outfile == '-':
-        return sys.stdout
+        return getattr(sys.stdout, 'buffer', sys.stdout)
     else:
-        return open(outfile,'w')
+        return open(outfile,'wb')
 
 def inc_nonce(nonce):
     i=0
-    nonce = [x for x in nonce]
+    nonce = [chr(x) for x in bytearray(nonce)]
     while(i<nacl.crypto_box_NONCEBYTES):
         nonce[i]=chr((ord(nonce[i])+1) % 256)
         if nonce[i]!=0: break
